@@ -77,17 +77,17 @@ export function Footer() {
                 <Mail size={18} className="mt-1 flex-shrink-0" />
                 <div>
                   <a href="mailto:contact@sipsinstitute.com" className="text-emerald-200 hover:text-white transition-colors">
-                    contact@sipsinstitute.com
+                    stellerinstitute@gmail.com
                   </a>
                   <br />
-                  <a href="mailto:your.live@mail.com" className="text-emerald-200 hover:text-white transition-colors">
+                  {/* <a href="mailto:your.live@mail.com" className="text-emerald-200 hover:text-white transition-colors">
                     your.live@mail.com
-                  </a>
+                  </a> */}
                 </div>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin size={18} className="mt-1 flex-shrink-0" />
-                <span className="text-emerald-200">www.sipsinstitute.com</span>
+                <span className="text-emerald-200">www.sips.edu.lk</span>
               </li>
             </ul>
 

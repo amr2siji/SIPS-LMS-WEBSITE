@@ -14,16 +14,16 @@ export function Home() {
       >
         <div className="text-center max-w-4xl px-4">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            PROGRAMS DESIGNED FOR<br />TOMORROW LEADERS
+            SIPS PROGRAMMES ARE DESIGNED FOR<br />NEXT-GENERATION LEADERS
           </h1>
           <p className="text-xl md:text-2xl mb-8 text-gray-200">
-            Programs adhering to ancestry credential teaching
+            Learn Today. Lead Tomorrow
           </p>
           <Link
             to="/programmes"
             className="inline-block bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all transform hover:scale-105"
           >
-            Explore Programs
+            Explore Programmes
           </Link>
         </div>
       </section>
@@ -40,7 +40,7 @@ export function Home() {
               <Target className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Mission</h3>
               <p className="text-gray-700 leading-relaxed">
-                To provide world-class education that empowers students with knowledge, skills, and values needed to excel in their professional careers and contribute meaningfully to society.
+                To empower students with transformative education that integrates innovation, sustainability, and skill-based learning, fostering intellectual growth and global readiness. We are committed to delivering quality learning experiences, nurturing future leaders, and contributing to the sustainable development of Sri Lanka and beyond.
               </p>
             </div>
 
@@ -48,7 +48,7 @@ export function Home() {
               <Lightbulb className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Vision</h3>
               <p className="text-gray-700 leading-relaxed">
-                To be a leading institution recognized globally for academic excellence, innovative teaching methodologies, and producing graduates who are industry-ready and socially responsible leaders.
+                To be the most trusted center of excellence for Next-Generation Education in Sri Lanka.
               </p>
             </div>
 
@@ -58,19 +58,15 @@ export function Home() {
               <ul className="text-gray-700 space-y-2">
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span>Excellence in education</span>
+                  <span>Empowerment</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span>Integrity and ethics</span>
+                  <span>Entrepreneurial</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span>Community engagement</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-amber-500 mr-2">•</span>
-                  <span>Innovation and leadership</span>
+                  <span>Excellence</span>
                 </li>
               </ul>
             </div>
@@ -143,7 +139,7 @@ export function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-4xl font-bold mb-6">Ready to Start Your Journey?</h2>
           <p className="text-xl mb-8 text-emerald-200">
-            Join thousands of successful graduates who started their career at SIPS
+            Be the first to unlock the power of Next-Gen Education with SIPS
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
