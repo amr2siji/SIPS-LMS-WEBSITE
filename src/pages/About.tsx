@@ -1,8 +1,47 @@
-import { Target, Lightbulb, Heart, Award, GraduationCap, BookOpen, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 
 export function About() {
+  const teamMembers = [
+    {
+      name: "Charunadi Ratnayake",
+      title: "Director / Lecturer",
+      qualifications: "PhD (Reading, UOC) | MSc (USJP) | BBM (UWU) | CIMA (Reading) | PGD (OTHM L7 - SML)",
+      bio: "An accomplished academic and administrator with over 6 years of experience in the higher education sector, having served at Uva Wellassa University, Metropolitan College, Lyceum Campus, and Aquinas College of Higher Studies (as Head of Faculty). Currently contributes to academia as a visiting lecturer across multiple universities and higher education institutions.",
+      image: "/team/charunadi.jpg" // Placeholder - you'll add the actual image
+    },
+    {
+      name: "Duranga Senanayake",
+      title: "Director / Lecturer",
+      qualifications: "PhD (Reading, AUS) | MSc (UOP) | BSc. (UWU)",
+      bio: "A dedicated academic professional with over 5 years of experience in higher education and a solid industrial background in Mechatronics, Robotics, and applied engineering technologies.",
+      image: "/team/duranga.jpg" // Placeholder - you'll add the actual image
+    },
+    {
+      name: "Pabasara Amarawardena",
+      title: "Director",
+      qualifications: "MBA, BSc (Hons) in Chemistry",
+      bio: "A passionate and dedicated professional with over 10 years of experience in academic administration, contributing at both strategic and operational levels within the higher education sector. Demonstrated success in leading and supporting reputed higher education institutions, driving institutional excellence through strategic leadership, process improvement, and operational efficiency.",
+      image: "/team/pabasara.jpg" // Placeholder - you'll add the actual image
+    },
+    {
+      name: "Ruwin Ratnayake",
+      title: "Academic Consultant",
+      qualifications: "BSc (Hons) in IT, Cyber Security",
+      bio: "An experienced DevSecOps Engineer and a graduate of the Sri Lanka Institute of Information Technology, specializing in Cyber Security. Recognized for a strong work ethic, problem-solving mindset, and a determined, never-give-up attitude toward achieving excellence in both technical and collaborative environments.",
+      image: "/team/ruwin.jpg" // Placeholder - you'll add the actual image
+    },
+    {
+      name: "Tharushi Nimanthika",
+      title: "Academic Consultant",
+      qualifications: "MBA, MBCS Information Technology",
+      bio: "Possesses extensive experience in academic administration since 2019, demonstrating consistent commitment to academic quality, institutional excellence, and continuous professional growth within the higher education sector.",
+      image: "/team/tharushi.jpg" // Placeholder - you'll add the actual image
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
       <section
         className="relative h-[400px] flex items-center justify-center text-white"
         style={{
@@ -13,162 +52,80 @@ export function About() {
       >
         <div className="text-center max-w-4xl px-4">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            OUR PURPOSE: MISSION, VISION & VALUES
+            MEET OUR TEAM
           </h1>
-          <button className="bg-amber-500 hover:bg-amber-600 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors">
-            Learn Our Story
-          </button>
+          <p className="text-xl text-emerald-100">
+            Dedicated professionals committed to academic excellence
+          </p>
         </div>
       </section>
 
+      {/* Team Members Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
-          <div className="bg-white p-8 rounded-lg shadow-md">
-            <div className="flex items-center gap-3 mb-4">
-              <Target className="text-emerald-700" size={40} />
-              <h2 className="text-2xl font-bold text-gray-900">Our Mission</h2>
-            </div>
-            <p className="text-gray-700 leading-relaxed">
-              To provide world-class education that empowers students with knowledge, skills, and values needed to excel in their professional careers and contribute meaningfully to society. We strive to create an inclusive learning environment that fosters critical thinking, innovation, and lifelong learning.
-            </p>
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Users className="text-emerald-700" size={48} />
           </div>
-
-          <div className="bg-white p-8 rounded-lg shadow-md">
-            <div className="flex items-center gap-3 mb-4">
-              <Lightbulb className="text-emerald-700" size={40} />
-              <h2 className="text-2xl font-bold text-gray-900">Our Vision</h2>
-            </div>
-            <p className="text-gray-700 leading-relaxed">
-              To be a leading institution recognized globally for academic excellence, innovative teaching methodologies, and producing graduates who are industry-ready and socially responsible leaders. We aim to set new standards in professional education and research.
-            </p>
-          </div>
-
-          <div className="bg-white p-8 rounded-lg shadow-md">
-            <div className="flex items-center gap-3 mb-4">
-              <Heart className="text-emerald-700" size={40} />
-              <h2 className="text-2xl font-bold text-gray-900">Our Core Values</h2>
-            </div>
-            <ul className="text-gray-700 space-y-3">
-              <li className="flex items-start">
-                <span className="text-amber-500 mr-2 font-bold">•</span>
-                <div>
-                  <strong>Excellence:</strong> Commitment to the highest standards
-                </div>
-              </li>
-              <li className="flex items-start">
-                <span className="text-amber-500 mr-2 font-bold">•</span>
-                <div>
-                  <strong>Integrity:</strong> Ethical conduct in all endeavors
-                </div>
-              </li>
-              <li className="flex items-start">
-                <span className="text-amber-500 mr-2 font-bold">•</span>
-                <div>
-                  <strong>Community:</strong> Building strong partnerships
-                </div>
-              </li>
-              <li className="flex items-start">
-                <span className="text-amber-500 mr-2 font-bold">•</span>
-                <div>
-                  <strong>Leadership:</strong> Developing future leaders
-                </div>
-              </li>
-            </ul>
-          </div>
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Leadership Team</h2>
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+            Meet the exceptional individuals who drive our institution's vision and commitment to educational excellence.
+          </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-8 mb-16">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">Our Journey</h2>
-          <div className="grid md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Award className="text-emerald-700" size={32} />
+        <div className="space-y-12">
+          {teamMembers.map((member, index) => (
+            <div
+              key={index}
+              className={`bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow ${
+                index % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'
+              } flex flex-col md:flex`}
+            >
+              {/* Image Section */}
+              <div className="md:w-1/3 bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center p-8">
+                <div className="w-64 h-64 rounded-full overflow-hidden border-8 border-white shadow-lg">
+                  <img
+                    src={member.image}
+                    alt={member.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to placeholder if image not found
+                      e.currentTarget.src = 'https://via.placeholder.com/256x256/10b981/ffffff?text=' + member.name.split(' ').map(n => n[0]).join('');
+                    }}
+                  />
+                </div>
               </div>
-              <h3 className="font-bold text-gray-900 mb-2">2000: Founded</h3>
-              <p className="text-gray-600 text-sm">
-                Established with a vision to transform professional education
-              </p>
-            </div>
 
-            <div className="text-center">
-              <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                <GraduationCap className="text-emerald-700" size={32} />
+              {/* Content Section */}
+              <div className="md:w-2/3 p-8 md:p-10">
+                <h3 className="text-3xl font-bold text-gray-900 mb-2">{member.name}</h3>
+                <p className="text-xl text-emerald-700 font-semibold mb-3">{member.title}</p>
+                <p className="text-sm text-gray-600 font-medium mb-4 italic">{member.qualifications}</p>
+                <div className="h-1 w-20 bg-gradient-to-r from-emerald-500 to-amber-500 mb-6"></div>
+                <p className="text-gray-700 leading-relaxed">{member.bio}</p>
               </div>
-              <h3 className="font-bold text-gray-900 mb-2">2010: First Accreditation</h3>
-              <p className="text-gray-600 text-sm">
-                Received international accreditation for excellence in education
-              </p>
             </div>
-
-            <div className="text-center">
-              <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                <BookOpen className="text-emerald-700" size={32} />
-              </div>
-              <h3 className="font-bold text-gray-900 mb-2">2018: New Campus Wing</h3>
-              <p className="text-gray-600 text-sm">
-                Expanded facilities to accommodate growing student body
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Users className="text-emerald-700" size={32} />
-              </div>
-              <h3 className="font-bold text-gray-900 mb-2">2023: Global Partnerships</h3>
-              <p className="text-gray-600 text-sm">
-                Established partnerships with leading international universities
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="bg-emerald-50 p-8 rounded-lg">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Academic Quality</h2>
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-bold text-emerald-700 mb-2">World-Class Faculty</h3>
-                <p className="text-gray-700">
-                  Our faculty members are industry experts and experienced academics who bring real-world knowledge to the classroom.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-bold text-emerald-700 mb-2">Cutting-Edge Curriculum</h3>
-                <p className="text-gray-700">
-                  Programs designed in collaboration with industry leaders to ensure relevance and employability.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-bold text-emerald-700 mb-2">Research Excellence</h3>
-                <p className="text-gray-700">
-                  Active research programs contributing to knowledge advancement in various fields.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-emerald-50 p-8 rounded-lg">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Our Partners</h2>
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-bold text-emerald-700 mb-2">Industry Collaboration</h3>
-                <p className="text-gray-700">
-                  Strategic partnerships with leading corporations providing internships and employment opportunities.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-bold text-emerald-700 mb-2">International Universities</h3>
-                <p className="text-gray-700">
-                  Exchange programs and joint degrees with prestigious universities worldwide.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-bold text-emerald-700 mb-2">Accreditation Bodies</h3>
-                <p className="text-gray-700">
-                  Recognized by major national and international accreditation organizations.
-                </p>
-              </div>
-            </div>
+        {/* Call to Action */}
+        <div className="mt-16 bg-gradient-to-r from-emerald-700 to-emerald-900 rounded-2xl p-12 text-center text-white">
+          <h2 className="text-3xl font-bold mb-4">Join Our Academic Community</h2>
+          <p className="text-lg text-emerald-100 mb-8 max-w-2xl mx-auto">
+            Experience world-class education guided by industry experts and dedicated professionals committed to your success.
+          </p>
+          <div className="flex gap-4 justify-center flex-wrap">
+            <button
+              onClick={() => window.location.href = '/register'}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors"
+            >
+              Register Online
+            </button>
+            <button
+              onClick={() => window.location.href = '/programmes'}
+              className="bg-white hover:bg-gray-100 text-emerald-700 px-8 py-3 rounded-lg text-lg font-semibold transition-colors"
+            >
+              View Programmes
+            </button>
           </div>
         </div>
       </div>

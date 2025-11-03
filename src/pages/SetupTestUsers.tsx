@@ -68,7 +68,7 @@ export function SetupTestUsers() {
             continue;
           }
 
-          const { error: profileError } = await supabase.from('profiles').insert({
+          const { error: profileError } = await (supabase as any).from('profiles').insert({
             id: authData.user.id,
             email: user.email,
             full_name: user.full_name,
@@ -86,7 +86,7 @@ export function SetupTestUsers() {
           }
 
           if (user.role === 'student') {
-            const { error: studentError } = await supabase.from('students').insert({
+            const { error: studentError } = await (supabase as any).from('students').insert({
               id: authData.user.id,
               student_id: 'STU-2024-001',
               batch_id: '750e8400-e29b-41d4-a716-446655440001',
@@ -105,7 +105,7 @@ export function SetupTestUsers() {
               continue;
             }
 
-            await supabase.from('course_enrollments').insert([
+            await (supabase as any).from('course_enrollments').insert([
               {
                 student_id: authData.user.id,
                 course_id: '650e8400-e29b-41d4-a716-446655440001',
@@ -126,7 +126,7 @@ export function SetupTestUsers() {
               },
             ]);
 
-            await supabase.from('notifications').insert([
+            await (supabase as any).from('notifications').insert([
               {
                 user_id: authData.user.id,
                 type: 'announcement',
@@ -138,7 +138,7 @@ export function SetupTestUsers() {
           }
 
           if (user.role === 'instructor') {
-            await supabase.from('instructors').insert([
+            await (supabase as any).from('instructors').insert([
               {
                 instructor_id: authData.user.id,
                 course_id: '650e8400-e29b-41d4-a716-446655440001',
@@ -151,7 +151,7 @@ export function SetupTestUsers() {
               },
             ]);
 
-            await supabase.from('assignments').insert([
+            await (supabase as any).from('assignments').insert([
               {
                 course_id: '650e8400-e29b-41d4-a716-446655440001',
                 instructor_id: authData.user.id,

@@ -41,7 +41,8 @@ export function Apply() {
     setError('');
 
     try {
-      const { error } = await supabase
+      // Temporary workaround for type mismatch - database types need regeneration
+      const { error } = await (supabase as any)
         .from('applications')
         .insert([formData]);
 
@@ -62,15 +63,15 @@ export function Apply() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <CheckCircle className="text-green-500 mx-auto mb-4" size={64} />
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Application Submitted!</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Inquiry Submitted!</h2>
           <p className="text-gray-700 mb-6">
-            Thank you for your interest in SIPS. Our admissions team will contact you shortly.
+            Thank you for your interest in <span className="font-baskerville">SIPS</span>. Our admissions team will contact you shortly to provide you with more information.
           </p>
           <button
             onClick={() => setSuccess(false)}
             className="bg-emerald-700 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
           >
-            Submit Another Application
+            Submit Another Inquiry
           </button>
         </div>
       </div>
@@ -88,14 +89,14 @@ export function Apply() {
         }}
       >
         <div className="text-center">
-          <h1 className="text-5xl font-bold mb-4">Apply Now</h1>
-          <p className="text-xl">Start your journey with SIPS</p>
+          <h1 className="text-5xl font-bold mb-4">Inquire About Our Programmes</h1>
+          <p className="text-xl">We're here to help you choose the right path</p>
         </div>
       </section>
 
       <div className="max-w-2xl mx-auto px-4 py-12">
         <div className="bg-white rounded-lg shadow-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Application Form</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Inquiry Form</h2>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -175,7 +176,7 @@ export function Apply() {
               ) : (
                 <>
                   <Send size={20} />
-                  Submit Application
+                  Submit Inquiry
                 </>
               )}
             </button>
