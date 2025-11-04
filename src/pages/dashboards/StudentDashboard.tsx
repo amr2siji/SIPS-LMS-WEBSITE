@@ -16,39 +16,10 @@ interface StudentProgram {
   status: string;
 }
 
-interface Module {
-  id: string;
-  module_code: string;
-  module_name: string;
-  credit_score: number;
-}
-
-interface LectureMaterial {
-  id: string;
-  title: string;
-  file_url: string;
-  uploaded_at: string;
-}
-
-interface Assignment {
-  id: string;
-  title: string;
-  due_date: string;
-  max_marks: number;
-  submitted: boolean;
-  marks_obtained: number | null;
-  assignment_file_url?: string;
-}
-
 export function StudentDashboard() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [studentPrograms, setStudentPrograms] = useState<StudentProgram[]>([]);
-  const [selectedProgram, setSelectedProgram] = useState<string>('');
-  const [modules, setModules] = useState<Module[]>([]);
-  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
-  const [moduleMaterials, setModuleMaterials] = useState<{ [key: string]: LectureMaterial[] }>({});
-  const [moduleAssignments, setModuleAssignments] = useState<{ [key: string]: Assignment[] }>({});
   const [stats, setStats] = useState({
     totalModules: 0,
     pendingAssignments: 0,
@@ -62,28 +33,6 @@ export function StudentDashboard() {
       loadStudentPrograms();
     }
   }, [profile]);
-
-  useEffect(() => {
-    if (selectedProgram) {
-      loadModulesByProgram();
-    } else {
-      setModules([]);
-      setExpandedModules(new Set());
-    }
-  }, [selectedProgram]);
-
-  const toggleModuleExpansion = async (moduleId: string) => {
-    const newExpanded = new Set(expandedModules);
-    if (newExpanded.has(moduleId)) {
-      newExpanded.delete(moduleId);
-    } else {
-      newExpanded.add(moduleId);
-      if (!moduleMaterials[moduleId]) {
-        await loadModuleContent(moduleId);
-      }
-    }
-    setExpandedModules(newExpanded);
-  };
 
   const loadStudentPrograms = async () => {
     try {
@@ -126,91 +75,6 @@ export function StudentDashboard() {
       console.error('Error loading student programs:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadModulesByProgram = async () => {
-    try {
-      const selectedProgramData = studentPrograms.find(p => p.program_id === selectedProgram);
-      if (!selectedProgramData) return;
-
-      const { data: modulesData, error } = await supabase
-        .from('modules')
-        .select('*')
-        .eq('program_id', selectedProgram)
-        .eq('intake_id', selectedProgramData.intake_id)
-        .eq('is_active', true)
-        .order('module_code');
-
-      if (error) throw error;
-
-      setModules(modulesData || []);
-      setStats(prev => ({ ...prev, totalModules: modulesData?.length || 0 }));
-    } catch (error) {
-      console.error('Error loading modules:', error);
-    }
-  };
-
-  const loadModuleContent = async (moduleId: string) => {
-    try {
-      const { data: materials, error: materialsError } = await supabase
-        .from('lecture_materials')
-        .select('*')
-        .eq('module_id', moduleId)
-        .order('uploaded_at', { ascending: false });
-
-      if (materialsError) throw materialsError;
-
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('assignments')
-        .select(`
-          id,
-          title,
-          due_date,
-          max_marks,
-          assignment_file_url,
-          assignment_submissions!left (
-            student_id,
-            marks_obtained
-          )
-        `)
-        .eq('module_id', moduleId)
-        .eq('is_published', true)
-        .order('due_date', { ascending: true });
-
-      if (assignmentsError) throw assignmentsError;
-
-      const formattedAssignments: Assignment[] = (assignmentsData || []).map((a: any) => {
-        const submission = a.assignment_submissions?.find(
-          (s: any) => s.student_id === profile?.id
-        );
-        return {
-          id: a.id,
-          title: a.title,
-          due_date: a.due_date,
-          max_marks: a.max_marks || 100,
-          submitted: !!submission,
-          marks_obtained: submission?.marks_obtained || null,
-          assignment_file_url: a.assignment_file_url,
-        };
-      });
-
-      setModuleMaterials(prev => ({ ...prev, [moduleId]: materials || [] }));
-      setModuleAssignments(prev => ({ ...prev, [moduleId]: formattedAssignments }));
-
-      const allAssignments = Object.values({ ...moduleAssignments, [moduleId]: formattedAssignments }).flat();
-      const pending = allAssignments.filter(a => !a.submitted).length;
-      const completed = allAssignments.filter(a => a.submitted).length;
-      const allMaterials = Object.values({ ...moduleMaterials, [moduleId]: materials || [] }).flat();
-      
-      setStats(prev => ({
-        ...prev,
-        pendingAssignments: pending,
-        completedAssignments: completed,
-        totalMaterials: allMaterials.length,
-      }));
-    } catch (error) {
-      console.error('Error loading module content:', error);
     }
   };
 
@@ -342,14 +206,15 @@ export function StudentDashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {[
-                { icon: Upload, title: 'Submit Assignment', desc: 'Upload your completed assignments', color: 'from-emerald-500 to-emerald-600' },
-                { icon: DollarSign, title: 'Upload Payment', desc: 'Submit payment proof documents', color: 'from-blue-500 to-blue-600' },
-                { icon: Calendar, title: 'View Exam Schedule', desc: 'Check upcoming exam dates', color: 'from-purple-500 to-purple-600' },
-                { icon: FileText, title: 'Download Materials', desc: 'Access lecture notes', color: 'from-amber-500 to-amber-600' },
-                { icon: CheckCircle, title: 'View Results', desc: 'Check your grades', color: 'from-green-500 to-green-600' },
-                { icon: BookOpen, title: 'View Modules', desc: 'Browse course modules', color: 'from-indigo-500 to-indigo-600' },
+                { icon: DollarSign, title: 'Upload Payment', desc: 'Submit payment proof documents', color: 'from-blue-500 to-blue-600', onClick: () => navigate('/student/payments') },
+                { icon: Calendar, title: 'View Exam Schedule', desc: 'Check upcoming exam dates', color: 'from-purple-500 to-purple-600', onClick: () => navigate('/student/exam-schedule') },
+                { icon: CheckCircle, title: 'View Results', desc: 'Check your grades', color: 'from-green-500 to-green-600', onClick: () => navigate('/student/results') },
               ].map((action, idx) => (
-                <button key={idx} className="group bg-white rounded-xl shadow-sm hover:shadow-lg transition-all p-6 text-left border border-gray-100 hover:border-emerald-200 relative overflow-hidden">
+                <button 
+                  key={idx} 
+                  onClick={action.onClick}
+                  className="group bg-white rounded-xl shadow-sm hover:shadow-lg transition-all p-6 text-left border border-gray-100 hover:border-emerald-200 relative overflow-hidden"
+                >
                   <div className="relative z-10">
                     <div className="flex items-start justify-between mb-4">
                       <div className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform`}>
@@ -374,135 +239,31 @@ export function StudentDashboard() {
               ) : (
                 <div className="space-y-3">
                   {studentPrograms.map((program) => (
-                    <div key={program.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                      <button
-                        onClick={() => setSelectedProgram(selectedProgram === program.program_id ? '' : program.program_id)}
-                        className={`w-full text-left p-4 transition-all ${
-                          selectedProgram === program.program_id ? 'bg-emerald-50 border-l-4 border-emerald-500' : 'bg-white hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="flex-1">
-                            <h4 className="font-bold text-gray-900 mb-1">{program.program_name}</h4>
+                    <button
+                      key={program.id}
+                      onClick={() => navigate(`/student/modules?programId=${program.program_id}&programName=${encodeURIComponent(program.program_name)}&intakeId=${program.intake_id}`)}
+                      className="w-full bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:bg-emerald-50 transition-all hover:shadow-md group"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 rounded-lg group-hover:scale-110 transition-transform">
+                            <BookOpen className="text-white" size={24} />
+                          </div>
+                          <div className="text-left">
+                            <h4 className="font-bold text-gray-900 mb-1 group-hover:text-emerald-700 transition-colors">{program.program_name}</h4>
                             <p className="text-sm text-gray-600">{program.intake_name}</p>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${program.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                              {program.status}
-                            </span>
-                            <svg className={`w-5 h-5 text-gray-500 transition-transform ${selectedProgram === program.program_id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
                         </div>
-                      </button>
-
-                      {selectedProgram === program.program_id && (
-                        <div className="bg-gray-50 p-4 border-t border-gray-200">
-                          {modules.length === 0 ? (
-                            <p className="text-gray-500 text-center py-4">No modules available for this program.</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {modules.map((module) => (
-                                <div key={module.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                                  <button onClick={() => toggleModuleExpansion(module.id)} className="w-full text-left p-3 hover:bg-gray-50 transition-colors">
-                                    <div className="flex justify-between items-start">
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <BookOpen className="text-emerald-600" size={16} />
-                                          <h5 className="font-bold text-gray-900 text-sm">{module.module_name}</h5>
-                                        </div>
-                                        <p className="text-xs text-gray-600">{module.module_code}</p>
-                                      </div>
-                                      <div className="flex items-center gap-2 ml-3">
-                                        <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-semibold">{module.credit_score} Credits</span>
-                                        <svg className={`w-4 h-4 text-gray-500 transition-transform ${expandedModules.has(module.id) ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                      </div>
-                                    </div>
-                                  </button>
-
-                                  {expandedModules.has(module.id) && (
-                                    <div className="border-t border-gray-200 bg-gray-50">
-                                      <div className="p-3 border-b border-gray-200">
-                                        <h6 className="font-semibold text-gray-900 mb-2 flex items-center gap-2 text-sm">
-                                          <Upload className="text-purple-600" size={14} />
-                                          Lecture Materials
-                                        </h6>
-                                        {!moduleMaterials[module.id] || moduleMaterials[module.id].length === 0 ? (
-                                          <p className="text-gray-500 text-xs text-center py-3">No materials available yet.</p>
-                                        ) : (
-                                          <div className="space-y-2">
-                                            {moduleMaterials[module.id].map((material) => (
-                                              <div key={material.id} className="bg-white rounded p-2 border border-gray-200 flex justify-between items-center">
-                                                <div className="flex-1">
-                                                  <h6 className="font-semibold text-gray-900 text-xs">{material.title}</h6>
-                                                  <p className="text-xs text-gray-500">{new Date(material.uploaded_at).toLocaleDateString()}</p>
-                                                </div>
-                                                <a href={material.file_url} target="_blank" rel="noopener noreferrer" className="ml-2 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-xs font-semibold transition-colors">
-                                                  Download
-                                                </a>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      <div className="p-3">
-                                        <h6 className="font-semibold text-gray-900 mb-2 flex items-center gap-2 text-sm">
-                                          <FileText className="text-amber-500" size={14} />
-                                          Assignments
-                                        </h6>
-                                        {!moduleAssignments[module.id] || moduleAssignments[module.id].length === 0 ? (
-                                          <p className="text-gray-500 text-xs text-center py-3">No assignments available.</p>
-                                        ) : (
-                                          <div className="space-y-2">
-                                            {moduleAssignments[module.id].map((assignment) => (
-                                              <div key={assignment.id} className={`bg-white rounded p-2 border-2 ${assignment.submitted ? 'border-green-300 bg-green-50' : 'border-amber-300'}`}>
-                                                <div className="flex justify-between items-start">
-                                                  <div className="flex-1">
-                                                    <div className="flex items-center gap-1 mb-1">
-                                                      {assignment.submitted ? <CheckCircle className="text-green-600" size={12} /> : <Clock className="text-amber-600" size={12} />}
-                                                      <h6 className="font-semibold text-gray-900 text-xs">{assignment.title}</h6>
-                                                    </div>
-                                                    <div className="flex gap-2 text-xs">
-                                                      <span className="text-gray-600">Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
-                                                      <span className="text-gray-600">Max: {assignment.max_marks}</span>
-                                                      {assignment.submitted && assignment.marks_obtained !== null && (
-                                                        <span className="text-green-600 font-semibold">Score: {assignment.marks_obtained}/{assignment.max_marks}</span>
-                                                      )}
-                                                    </div>
-                                                    {assignment.assignment_file_url && (
-                                                      <a
-                                                        href={assignment.assignment_file_url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium mt-1"
-                                                      >
-                                                        <FileText size={12} />
-                                                        Download File
-                                                      </a>
-                                                    )}
-                                                  </div>
-                                                  {!assignment.submitted && (
-                                                    <button className="ml-2 bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 rounded text-xs font-semibold transition-colors">Submit</button>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                        <div className="flex items-center gap-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${program.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {program.status}
+                          </span>
+                          <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    </button>
                   ))}
                 </div>
               )}

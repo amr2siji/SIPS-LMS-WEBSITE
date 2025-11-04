@@ -21,10 +21,10 @@ interface Lecturer {
     module_id: string;
     programs: {
       name: string;
-    };
+    } | null;
     modules: {
-      name: string;
-    };
+      module_name: string;
+    } | null;
   }>;
 }
 
@@ -45,13 +45,6 @@ interface Program {
   department_id: string;
 }
 
-interface Module {
-  id: string;
-  name: string;
-  code: string;
-  program_id: string;
-}
-
 export function LecturerManagement() {
   const navigate = useNavigate();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
@@ -70,7 +63,6 @@ export function LecturerManagement() {
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
-  const [modules, setModules] = useState<Module[]>([]);
   
   // Filter dropdown data
   const [filterFaculties, setFilterFaculties] = useState<Faculty[]>([]);
@@ -110,7 +102,6 @@ export function LecturerManagement() {
     } else {
       setDepartments([]);
       setPrograms([]);
-      setModules([]);
     }
   }, [assignment.faculty_id]);
 
@@ -119,17 +110,8 @@ export function LecturerManagement() {
       loadProgramsByDepartment(assignment.department_id);
     } else {
       setPrograms([]);
-      setModules([]);
     }
   }, [assignment.department_id]);
-
-  useEffect(() => {
-    if (assignment.program_id) {
-      loadModulesByProgram(assignment.program_id);
-    } else {
-      setModules([]);
-    }
-  }, [assignment.program_id]);
 
   // Filter useEffects
   useEffect(() => {
@@ -181,20 +163,6 @@ export function LecturerManagement() {
     }
   };
 
-  const loadModulesByProgram = async (programId: string) => {
-    try {
-      const { data } = await supabase
-        .from('modules')
-        .select('id, name, code, program_id')
-        .eq('program_id', programId)
-        .eq('is_active', true)
-        .order('name');
-      setModules(data || []);
-    } catch (error) {
-      console.error('Error loading modules:', error);
-    }
-  };
-
   // Filter load functions
   const loadFilterFaculties = async () => {
     try {
@@ -242,7 +210,7 @@ export function LecturerManagement() {
               name
             ),
             modules (
-              name
+              module_name
             )
           )
         `)
@@ -301,30 +269,47 @@ export function LecturerManagement() {
 
   const handleAssignModule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedLecturer || !assignment.program_id || !assignment.module_id) {
-      alert('Please select a program and module');
+    if (!selectedLecturer || !assignment.program_id) {
+      alert('Please select a program');
       return;
     }
 
     setProcessing(true);
     try {
+      // Get all modules for the selected program
+      const { data: programModules, error: modulesError } = await supabase
+        .from('modules')
+        .select('id')
+        .eq('program_id', assignment.program_id)
+        .eq('is_active', true);
+
+      if (modulesError) throw modulesError;
+
+      if (!programModules || programModules.length === 0) {
+        alert('No active modules found for this program');
+        setProcessing(false);
+        return;
+      }
+
+      // Create assignments for all modules in the program
       const supabaseAny = supabase as any;
-      
+      const assignments = programModules.map((module: any) => ({
+        id: crypto.randomUUID(),
+        lecturer_id: selectedLecturer.id,
+        faculty_id: assignment.faculty_id,
+        department_id: assignment.department_id,
+        program_id: assignment.program_id,
+        module_id: module.id,
+        intake_id: assignment.intake_id || null
+      }));
+
       const { error } = await supabaseAny
         .from('lecturer_assignments')
-        .insert({
-          id: crypto.randomUUID(),
-          lecturer_id: selectedLecturer.id,
-          faculty_id: assignment.faculty_id,
-          department_id: assignment.department_id,
-          program_id: assignment.program_id,
-          module_id: assignment.module_id,
-          intake_id: assignment.intake_id || null
-        });
+        .insert(assignments);
 
       if (error) throw error;
 
-      alert('Module assigned successfully!');
+      alert(`Successfully assigned ${programModules.length} module(s) to the lecturer!`);
       setShowAssignModal(false);
       setAssignment({
         faculty_id: '',
@@ -336,8 +321,8 @@ export function LecturerManagement() {
       setSelectedLecturer(null);
       loadLecturers();
     } catch (error: any) {
-      console.error('Error assigning module:', error);
-      alert('Failed to assign module: ' + (error.message || 'Unknown error'));
+      console.error('Error assigning modules:', error);
+      alert('Failed to assign modules: ' + (error.message || 'Unknown error'));
     } finally {
       setProcessing(false);
     }
@@ -579,9 +564,11 @@ export function LecturerManagement() {
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {lecturer.lecturer_assignments.slice(0, 3).map((assignment) => (
-                            <span key={assignment.id} className="text-xs bg-white px-2 py-1 rounded border border-purple-200 text-gray-700">
-                              {assignment.modules.name} - {assignment.programs.name}
-                            </span>
+                            assignment.modules && assignment.programs ? (
+                              <span key={assignment.id} className="text-xs bg-white px-2 py-1 rounded border border-purple-200 text-gray-700">
+                                {assignment.modules.module_name} - {assignment.programs.name}
+                              </span>
+                            ) : null
                           ))}
                           {lecturer.lecturer_assignments.length > 3 && (
                             <span className="text-xs text-purple-600 font-semibold">
@@ -602,7 +589,7 @@ export function LecturerManagement() {
                       className="flex-1 lg:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <Plus size={18} />
-                      Assign Module
+                      Assign Program
                     </button>
                     <button
                       onClick={() => handleToggleActive(lecturer)}
@@ -757,13 +744,13 @@ export function LecturerManagement() {
           </div>
         )}
 
-        {/* Assign Module Modal */}
+        {/* Assign Program Modal */}
         {showAssignModal && selectedLecturer && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-2xl w-full p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Assign Module to {selectedLecturer.first_name} {selectedLecturer.last_name}
+                  Assign Program to {selectedLecturer.first_name} {selectedLecturer.last_name}
                 </h2>
                 <button
                   onClick={() => {
@@ -791,7 +778,7 @@ export function LecturerManagement() {
                     </label>
                     <select
                       value={assignment.faculty_id}
-                      onChange={(e) => setAssignment({...assignment, faculty_id: e.target.value, department_id: '', program_id: '', module_id: ''})}
+                      onChange={(e) => setAssignment({...assignment, faculty_id: e.target.value, department_id: '', program_id: ''})}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       required
                     >
@@ -807,7 +794,7 @@ export function LecturerManagement() {
                     </label>
                     <select
                       value={assignment.department_id}
-                      onChange={(e) => setAssignment({...assignment, department_id: e.target.value, program_id: '', module_id: ''})}
+                      onChange={(e) => setAssignment({...assignment, department_id: e.target.value, program_id: ''})}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       disabled={!assignment.faculty_id}
                       required
@@ -824,7 +811,7 @@ export function LecturerManagement() {
                     </label>
                     <select
                       value={assignment.program_id}
-                      onChange={(e) => setAssignment({...assignment, program_id: e.target.value, module_id: ''})}
+                      onChange={(e) => setAssignment({...assignment, program_id: e.target.value})}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       disabled={!assignment.department_id}
                       required
@@ -835,23 +822,12 @@ export function LecturerManagement() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Module <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={assignment.module_id}
-                      onChange={(e) => setAssignment({...assignment, module_id: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      disabled={!assignment.program_id}
-                      required
-                    >
-                      <option value="">Select Module</option>
-                      {modules.map(m => (
-                        <option key={m.id} value={m.id}>{m.code} - {m.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> Selecting a program will automatically assign the lecturer to all active modules within that program.
+                  </p>
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t">
@@ -877,7 +853,7 @@ export function LecturerManagement() {
                     disabled={processing}
                     className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-400"
                   >
-                    {processing ? 'Assigning...' : 'Assign Module'}
+                    {processing ? 'Assigning...' : 'Assign Program'}
                   </button>
                 </div>
               </form>

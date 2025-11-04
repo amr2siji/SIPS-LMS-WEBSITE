@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Plus, Edit2, Trash2, X, FileText, Download, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Edit2, Trash2, X, FileText, Download, Eye, EyeOff, Upload as UploadIcon, File, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface LectureMaterial {
   id: string;
   title: string;
   week_number: number;
-  course_id: string;
+  module_id: string;
   file_type: 'ppt' | 'word' | 'pdf' | 'excel';
   file_url: string;
   description?: string;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
-  courses?: { 
-    name: string;
-    code: string;
+  modules?: { 
+    module_name: string;
+    module_code: string;
     program_id?: string;
     programs?: {
       name: string;
@@ -89,26 +89,78 @@ export function LectureMaterialManagement() {
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
 
+  // Form-specific dropdown data
+  const [formFaculties, setFormFaculties] = useState<Faculty[]>([]);
+  const [formDepartments, setFormDepartments] = useState<Department[]>([]);
+  const [formPrograms, setFormPrograms] = useState<Program[]>([]);
+  const [formIntakes, setFormIntakes] = useState<Intake[]>([]);
+  const [formCourses, setFormCourses] = useState<Course[]>([]);
+
   // Form states
   const [formData, setFormData] = useState({
     title: '',
     week_number: 1,
+    faculty_id_temp: '', // Temporary for form selection
+    department_id_temp: '', // Temporary for form selection
     program_id_temp: '', // Temporary for form selection only
     intake_id_temp: '', // Temporary for form selection only
-    course_id: '',
+    module_id: '',
     file_type: 'pdf' as 'ppt' | 'word' | 'pdf' | 'excel',
     file_url: '',
     description: '',
     is_active: true,
   });
+  const [materialFile, setMaterialFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadMaterials();
     loadFaculties();
     loadIntakes();
     loadAllPrograms();
+    loadFormFaculties();
   }, []);
 
+  // Form cascading dropdowns
+  useEffect(() => {
+    if (formData.faculty_id_temp) {
+      loadFormDepartments(formData.faculty_id_temp);
+    } else {
+      setFormDepartments([]);
+      setFormPrograms([]);
+      setFormIntakes([]);
+      setFormCourses([]);
+    }
+  }, [formData.faculty_id_temp]);
+
+  useEffect(() => {
+    if (formData.department_id_temp) {
+      loadFormPrograms(formData.department_id_temp);
+    } else {
+      setFormPrograms([]);
+      setFormIntakes([]);
+      setFormCourses([]);
+    }
+  }, [formData.department_id_temp]);
+
+  useEffect(() => {
+    if (formData.program_id_temp) {
+      loadFormIntakes(formData.program_id_temp);
+    } else {
+      setFormIntakes([]);
+      setFormCourses([]);
+    }
+  }, [formData.program_id_temp]);
+
+  useEffect(() => {
+    if (formData.program_id_temp && formData.intake_id_temp) {
+      loadFormCourses(formData.program_id_temp, formData.intake_id_temp);
+    } else {
+      setFormCourses([]);
+    }
+  }, [formData.program_id_temp, formData.intake_id_temp]);
+
+  // Filter dropdowns
   useEffect(() => {
     if (filterFaculty !== 'all') {
       loadDepartmentsByFaculty(filterFaculty);
@@ -224,6 +276,92 @@ export function LectureMaterialManagement() {
     }
   };
 
+  // Form-specific load functions
+  const loadFormFaculties = async () => {
+    try {
+      const { data } = await supabase
+        .from('faculties')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      setFormFaculties(data || []);
+    } catch (error) {
+      console.error('Error loading form faculties:', error);
+    }
+  };
+
+  const loadFormDepartments = async (facultyId: string) => {
+    try {
+      const { data } = await supabase
+        .from('departments')
+        .select('id, name, faculty_id')
+        .eq('faculty_id', facultyId)
+        .eq('is_active', true)
+        .order('name');
+      setFormDepartments(data || []);
+    } catch (error) {
+      console.error('Error loading form departments:', error);
+    }
+  };
+
+  const loadFormPrograms = async (departmentId: string) => {
+    try {
+      const { data } = await supabase
+        .from('programs')
+        .select('id, name, department_id')
+        .eq('department_id', departmentId)
+        .eq('is_active', true)
+        .order('name');
+      setFormPrograms(data || []);
+    } catch (error) {
+      console.error('Error loading form programs:', error);
+    }
+  };
+
+  const loadFormIntakes = async (programId: string) => {
+    try {
+      const { data } = await supabase
+        .from('intakes')
+        .select('id, intake_name, intake_year, intake_month, program_id')
+        .eq('program_id', programId)
+        .order('intake_year', { ascending: false })
+        .order('intake_month', { ascending: false });
+      
+      const mappedData = (data || []).map((intake: any) => ({
+        ...intake,
+        name: intake.intake_name
+      }));
+      
+      setFormIntakes(mappedData);
+    } catch (error) {
+      console.error('Error loading form intakes:', error);
+    }
+  };
+
+  const loadFormCourses = async (programId: string, intakeId: string) => {
+    try {
+      const { data } = await supabase
+        .from('modules')
+        .select('id, module_name, module_code, program_id, intake_id')
+        .eq('program_id', programId)
+        .eq('intake_id', intakeId)
+        .eq('is_active', true)
+        .order('module_code');
+      
+      // Map to match Course interface
+      const mappedData = (data || []).map((module: any) => ({
+        id: module.id,
+        name: module.module_name,
+        code: module.module_code,
+        program_id: module.program_id
+      }));
+      
+      setFormCourses(mappedData);
+    } catch (error) {
+      console.error('Error loading form courses:', error);
+    }
+  };
+
   const loadMaterials = async () => {
     try {
       setLoading(true);
@@ -231,9 +369,9 @@ export function LectureMaterialManagement() {
         .from('lecture_materials')
         .select(`
           *,
-          courses (
-            name,
-            code,
+          modules (
+            module_name,
+            module_code,
             program_id,
             programs (
               name,
@@ -257,6 +395,80 @@ export function LectureMaterialManagement() {
     }
   };
 
+  const handleFileUpload = async (file: File): Promise<string | null> => {
+    try {
+      setUploading(true);
+      
+      // Validate file type
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
+        alert('Invalid file type. Please upload PDF, Word, Excel, or PowerPoint files.');
+        return null;
+      }
+
+      // Validate file size (50MB max)
+      const maxSize = 50 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert('File size exceeds 50MB limit.');
+        return null;
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `lecture-materials/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('lms-files')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('lms-files')
+        .getPublicUrl(filePath);
+
+      // Auto-detect file type from extension
+      let detectedFileType: 'ppt' | 'word' | 'pdf' | 'excel' = 'pdf';
+      if (fileExt) {
+        const ext = fileExt.toLowerCase();
+        if (ext === 'ppt' || ext === 'pptx') detectedFileType = 'ppt';
+        else if (ext === 'doc' || ext === 'docx') detectedFileType = 'word';
+        else if (ext === 'xls' || ext === 'xlsx') detectedFileType = 'excel';
+        else if (ext === 'pdf') detectedFileType = 'pdf';
+      }
+      
+      setFormData(prev => ({ ...prev, file_type: detectedFileType }));
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file. Please try again.');
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMaterialFile(file);
+      const fileUrl = await handleFileUpload(file);
+      if (fileUrl) {
+        setFormData(prev => ({ ...prev, file_url: fileUrl }));
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProcessing(true);
@@ -264,12 +476,15 @@ export function LectureMaterialManagement() {
     try {
       const supabaseAny = supabase as any;
 
+      // Prepare data excluding temporary fields
+      const { faculty_id_temp, department_id_temp, program_id_temp, intake_id_temp, ...dbData } = formData;
+
       if (editingMaterial) {
         // Update existing material
         const { error } = await supabaseAny
           .from('lecture_materials')
           .update({
-            ...formData,
+            ...dbData,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingMaterial.id);
@@ -280,7 +495,7 @@ export function LectureMaterialManagement() {
         // Create new material
         const { error } = await supabaseAny
           .from('lecture_materials')
-          .insert(formData);
+          .insert(dbData);
 
         if (error) throw error;
         alert('Lecture material created successfully!');
@@ -301,15 +516,19 @@ export function LectureMaterialManagement() {
   const handleEdit = (material: LectureMaterial) => {
     setEditingMaterial(material);
     
-    // Get program_id from the nested courses relationship
-    const programId = material.courses?.program_id || '';
+    // Get program_id from the nested modules relationship
+    const programId = material.modules?.program_id || '';
+    const departmentId = material.modules?.programs?.departments?.id || '';
+    const facultyId = material.modules?.programs?.departments?.faculties?.id || '';
     
     setFormData({
       title: material.title,
       week_number: material.week_number,
+      faculty_id_temp: facultyId,
+      department_id_temp: departmentId,
       program_id_temp: programId,
-      intake_id_temp: '', // Not available in courses table
-      course_id: material.course_id,
+      intake_id_temp: '', // Not available in modules table
+      module_id: material.module_id,
       file_type: material.file_type,
       file_url: material.file_url,
       description: material.description || '',
@@ -317,9 +536,6 @@ export function LectureMaterialManagement() {
     });
     
     // Load related dropdowns
-    const departmentId = material.courses?.programs?.departments?.id;
-    const facultyId = material.courses?.programs?.departments?.faculties?.id;
-    
     if (facultyId) {
       setFilterFaculty(facultyId);
       loadDepartmentsByFaculty(facultyId);
@@ -385,14 +601,18 @@ export function LectureMaterialManagement() {
     setFormData({
       title: '',
       week_number: 1,
+      faculty_id_temp: '',
+      department_id_temp: '',
       program_id_temp: '',
       intake_id_temp: '',
-      course_id: '',
+      module_id: '',
       file_type: 'pdf',
       file_url: '',
       description: '',
       is_active: true,
     });
+    setMaterialFile(null);
+    setUploading(false);
   };
 
   const resetFilters = () => {
@@ -410,18 +630,18 @@ export function LectureMaterialManagement() {
   const filteredMaterials = materials.filter(material => {
     const matchesSearch = 
       material.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      material.courses?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      material.courses?.code?.toLowerCase().includes(searchTerm.toLowerCase());
+      material.modules?.module_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      material.modules?.module_code?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Get faculty, department, and program from nested course data
-    const materialProgramId = material.courses?.program_id;
-    const materialFacultyId = material.courses?.programs?.departments?.faculties?.id;
-    const materialDepartmentId = material.courses?.programs?.departments?.id;
+    // Get faculty, department, and program from nested module data
+    const materialProgramId = material.modules?.program_id;
+    const materialFacultyId = material.modules?.programs?.departments?.faculties?.id;
+    const materialDepartmentId = material.modules?.programs?.departments?.id;
     
     const matchesFaculty = filterFaculty === 'all' || materialFacultyId === filterFaculty;
     const matchesDepartment = filterDepartment === 'all' || materialDepartmentId === filterDepartment;
     const matchesProgram = filterProgram === 'all' || materialProgramId === filterProgram;
-    const matchesModule = filterModule === 'all' || material.course_id === filterModule;
+    const matchesModule = filterModule === 'all' || material.module_id === filterModule;
     const matchesWeek = filterWeek === 'all' || material.week_number === parseInt(filterWeek);
     const matchesFileType = filterFileType === 'all' || material.file_type === filterFileType;
     const matchesStatus = filterStatus === 'all' || 
@@ -520,7 +740,7 @@ export function LectureMaterialManagement() {
           <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-gray-900">{new Set(materials.map(m => m.course_id)).size}</div>
+                <div className="text-2xl font-bold text-gray-900">{new Set(materials.map(m => m.module_id)).size}</div>
                 <div className="text-gray-600">Modules</div>
               </div>
               <FileText className="text-purple-500" size={40} />
@@ -704,7 +924,7 @@ export function LectureMaterialManagement() {
                           </span>
                         </div>
                         <p className="text-sm text-emerald-600 font-semibold">
-                          {material.courses?.code} - {material.courses?.name}
+                          {material.modules?.module_code} - {material.modules?.module_name}
                         </p>
                       </div>
                     </div>
@@ -714,13 +934,13 @@ export function LectureMaterialManagement() {
                         <span className="font-semibold">Week:</span> {material.week_number}
                       </div>
                       <div>
-                        <span className="font-semibold">Faculty:</span> {material.courses?.programs?.departments?.faculties?.name || 'N/A'}
+                        <span className="font-semibold">Faculty:</span> {material.modules?.programs?.departments?.faculties?.name || 'N/A'}
                       </div>
                       <div>
-                        <span className="font-semibold">Department:</span> {material.courses?.programs?.departments?.name || 'N/A'}
+                        <span className="font-semibold">Department:</span> {material.modules?.programs?.departments?.name || 'N/A'}
                       </div>
                       <div>
-                        <span className="font-semibold">Program:</span> {material.courses?.programs?.name || 'N/A'}
+                        <span className="font-semibold">Program:</span> {material.modules?.programs?.name || 'N/A'}
                       </div>
                       <div>
                         <span className="font-semibold">Uploaded:</span> {new Date(material.created_at).toLocaleDateString()}
@@ -828,21 +1048,54 @@ export function LectureMaterialManagement() {
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
+                  </div>
 
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        File Type *
+                        Faculty *
                       </label>
                       <select
                         required
-                        value={formData.file_type}
-                        onChange={(e) => setFormData({ ...formData, file_type: e.target.value as any })}
+                        value={formData.faculty_id_temp}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          faculty_id_temp: e.target.value, 
+                          department_id_temp: '', 
+                          program_id_temp: '', 
+                          intake_id_temp: '', 
+                          module_id: '' 
+                        })}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       >
-                        <option value="pdf">PDF</option>
-                        <option value="ppt">PowerPoint</option>
-                        <option value="word">Word Document</option>
-                        <option value="excel">Excel</option>
+                        <option value="">Select Faculty</option>
+                        {formFaculties.map(f => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Department *
+                      </label>
+                      <select
+                        required
+                        value={formData.department_id_temp}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          department_id_temp: e.target.value, 
+                          program_id_temp: '', 
+                          intake_id_temp: '', 
+                          module_id: '' 
+                        })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        disabled={!formData.faculty_id_temp}
+                      >
+                        <option value="">Select Department</option>
+                        {formDepartments.map(d => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -854,16 +1107,17 @@ export function LectureMaterialManagement() {
                     <select
                       required
                       value={formData.program_id_temp}
-                      onChange={(e) => {
-                        setFormData({ ...formData, program_id_temp: e.target.value, course_id: '' });
-                        if (formData.intake_id_temp) {
-                          loadCoursesByProgramAndIntake(e.target.value, formData.intake_id_temp);
-                        }
-                      }}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        program_id_temp: e.target.value, 
+                        intake_id_temp: '', 
+                        module_id: '' 
+                      })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      disabled={!formData.department_id_temp}
                     >
                       <option value="">Select Program</option>
-                      {programs.map(p => (
+                      {formPrograms.map(p => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
@@ -876,16 +1130,12 @@ export function LectureMaterialManagement() {
                     <select
                       required
                       value={formData.intake_id_temp}
-                      onChange={(e) => {
-                        setFormData({ ...formData, intake_id_temp: e.target.value, course_id: '' });
-                        if (formData.program_id_temp) {
-                          loadCoursesByProgramAndIntake(formData.program_id_temp, e.target.value);
-                        }
-                      }}
+                      onChange={(e) => setFormData({ ...formData, intake_id_temp: e.target.value, module_id: '' })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      disabled={!formData.program_id_temp}
                     >
                       <option value="">Select Intake</option>
-                      {intakes.map(i => {
+                      {formIntakes.map(i => {
                         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                         const monthName = i.intake_month ? monthNames[i.intake_month - 1] : '';
                         const displayText = i.intake_year && i.intake_month 
@@ -904,13 +1154,13 @@ export function LectureMaterialManagement() {
                     </label>
                     <select
                       required
-                      value={formData.course_id}
-                      onChange={(e) => setFormData({ ...formData, course_id: e.target.value })}
+                      value={formData.module_id}
+                      onChange={(e) => setFormData({ ...formData, module_id: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       disabled={!formData.program_id_temp || !formData.intake_id_temp}
                     >
                       <option value="">Select Module</option>
-                      {courses.map(m => (
+                      {formCourses.map(m => (
                         <option key={m.id} value={m.id}>{m.code} - {m.name}</option>
                       ))}
                     </select>
@@ -918,16 +1168,61 @@ export function LectureMaterialManagement() {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      File URL *
+                      Lecture Material File *
                     </label>
-                    <input
-                      type="url"
-                      required
-                      value={formData.file_url}
-                      onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="https://example.com/lecture.pdf"
-                    />
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-emerald-500 transition-colors">
+                      {!materialFile ? (
+                        <div>
+                          <input
+                            type="file"
+                            id="material-file"
+                            onChange={handleFileChange}
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                            className="hidden"
+                            disabled={uploading}
+                            required={!editingMaterial}
+                          />
+                          <label htmlFor="material-file" className="cursor-pointer">
+                            <UploadIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                            <p className="text-sm text-gray-600 mb-1">
+                              Click to upload or drag and drop
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              PDF, Word, Excel, or PowerPoint (Max 50MB)
+                            </p>
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <File className="w-8 h-8 text-emerald-600" />
+                            <div className="text-left">
+                              <p className="text-sm font-medium text-gray-900">{materialFile.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {(materialFile.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                          {uploading ? (
+                            <Loader className="w-5 h-5 text-emerald-600 animate-spin" />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMaterialFile(null);
+                                setFormData(prev => ({ ...prev, file_url: '' }));
+                              }}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {formData.file_url && !uploading && (
+                      <p className="text-xs text-green-600 mt-2">✓ File uploaded successfully</p>
+                    )}
                   </div>
 
                   <div>

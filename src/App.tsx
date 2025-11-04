@@ -22,6 +22,10 @@ import { ExamManagement } from './pages/admin/ExamManagement';
 import { MarksManagement } from './pages/admin/MarksManagement';
 import { LecturerManagement } from './pages/admin/LecturerManagement';
 import { LectureMaterialManagement } from './pages/admin/LectureMaterialManagement';
+import { StudentModules } from './pages/dashboards/StudentModules';
+import { StudentResults } from './pages/dashboards/StudentResults';
+import { StudentExamSchedule } from './pages/dashboards/StudentExamSchedule';
+import { StudentPayments } from './pages/dashboards/StudentPayments';
 
 function App() {
   return (
@@ -37,6 +41,10 @@ function App() {
           <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
           <Route path="/setup-test-users" element={<SetupTestUsers />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/student/modules" element={<StudentModules />} />
+          <Route path="/student/results" element={<StudentResults />} />
+          <Route path="/student/exam-schedule" element={<StudentExamSchedule />} />
+          <Route path="/student/payments" element={<StudentPayments />} />
           <Route path="/admin/manage-students" element={<ManageStudents />} />
           <Route path="/admin/manage-courses" element={<ManageCourses />} />
           <Route path="/admin/review-applications" element={<ReviewApplications />} />
