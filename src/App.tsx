@@ -12,7 +12,6 @@ import Register from './pages/Register';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { SetupTestUsers } from './pages/SetupTestUsers';
-import { SetupMockData } from './pages/SetupMockData';
 import { ManageStudents } from './pages/admin/ManageStudents';
 import { ManageCourses } from './pages/admin/ManageCourses';
 import { ReviewApplications } from './pages/admin/ReviewApplications';
@@ -37,7 +36,6 @@ function App() {
           <Route path="/register" element={<PublicLayout><Register /></PublicLayout>} />
           <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
           <Route path="/setup-test-users" element={<SetupTestUsers />} />
-          <Route path="/setup-mock-data" element={<SetupMockData />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin/manage-students" element={<ManageStudents />} />
           <Route path="/admin/manage-courses" element={<ManageCourses />} />

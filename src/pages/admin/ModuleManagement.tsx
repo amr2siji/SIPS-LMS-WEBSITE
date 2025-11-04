@@ -98,12 +98,24 @@ export function ModuleManagement() {
   useEffect(() => {
     if (selectedFaculty) {
       loadDepartments(selectedFaculty);
+      setSelectedDepartment(''); // Clear department when faculty changes
+      setPrograms([]); // Clear programs too
+      setSelectedProgram('');
+    } else {
+      setDepartments([]);
+      setPrograms([]);
+      setSelectedDepartment('');
+      setSelectedProgram('');
     }
   }, [selectedFaculty]);
 
   useEffect(() => {
     if (selectedDepartment) {
       loadPrograms(selectedDepartment);
+      setSelectedProgram(''); // Clear program selection when department changes
+    } else {
+      setPrograms([]);
+      setSelectedProgram('');
     }
   }, [selectedDepartment]);
 
@@ -644,6 +656,14 @@ export function ModuleManagement() {
                 {step === 3 && (
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold">Step 3: Select Program</h3>
+                    {programs.length === 0 ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                        <p className="text-amber-800 text-sm">
+                          <strong>Note:</strong> No programs found for the selected department. 
+                          Please ensure programs exist for this department, or go back and select a different department.
+                        </p>
+                      </div>
+                    ) : null}
                     <select
                       value={selectedProgram}
                       onChange={(e) => setSelectedProgram(e.target.value)}

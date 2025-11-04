@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, BookOpen, Edit, Trash2, Eye, EyeOff, X } from 'lucide-react';
+import { ArrowLeft, Plus, BookOpen, Edit, Trash2, Eye, EyeOff, X, Upload as UploadIcon, File, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface Faculty {
@@ -91,6 +91,8 @@ export function AssignmentManagement() {
   const [dueDate, setDueDate] = useState('');
   const [maxMarks, setMaxMarks] = useState(100);
   const [assignmentFileUrl, setAssignmentFileUrl] = useState('');
+  const [assignmentFile, setAssignmentFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadAssignments();
@@ -315,6 +317,84 @@ export function AssignmentManagement() {
     }
   };
 
+  const handleFileUpload = async (file: File): Promise<string | null> => {
+    try {
+      setUploading(true);
+      
+      // Validate file type
+      const allowedTypes = [
+        // Documents
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        // Archives
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/x-rar-compressed',
+        // Audio
+        'audio/mpeg',
+        'audio/mp3',
+        'audio/wav',
+        'audio/ogg',
+        // Video
+        'video/mp4',
+        'video/mpeg',
+        'video/quicktime',
+        'video/x-msvideo',
+        'video/webm'
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
+        alert('Invalid file type. Please upload PDF, Word, Excel, PowerPoint, ZIP, Audio, or Video files.');
+        return null;
+      }
+
+      // Validate file size (50MB max)
+      const maxSize = 50 * 1024 * 1024; // 50MB
+      if (file.size > maxSize) {
+        alert('File size exceeds 50MB limit.');
+        return null;
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `assignment-files/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('lms-files')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('lms-files')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file. Please try again.');
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAssignmentFile(file);
+      const fileUrl = await handleFileUpload(file);
+      if (fileUrl) {
+        setAssignmentFileUrl(fileUrl);
+      }
+    }
+  };
+
   const handleCreateAssignment = async () => {
     if (!assignmentTitle || !selectedModule || !selectedIntake || !dueDate) {
       alert('Please fill in all required fields');
@@ -390,6 +470,8 @@ export function AssignmentManagement() {
     setDueDate('');
     setMaxMarks(100);
     setAssignmentFileUrl('');
+    setAssignmentFile(null);
+    setUploading(false);
   };
 
   const resetFilters = () => {
@@ -586,6 +668,19 @@ export function AssignmentManagement() {
                       <span>Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
                       <span>Max Marks: {assignment.max_marks}</span>
                     </div>
+                    {assignment.assignment_file_url && (
+                      <div className="mt-3">
+                        <a
+                          href={assignment.assignment_file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          <File size={16} />
+                          Download Assignment File
+                        </a>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 ml-4">
                     <button className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors">
@@ -783,14 +878,59 @@ export function AssignmentManagement() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Assignment File URL</label>
-                      <input
-                        type="url"
-                        value={assignmentFileUrl}
-                        onChange={(e) => setAssignmentFileUrl(e.target.value)}
-                        placeholder="https://..."
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Assignment File</label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
+                        {!assignmentFile ? (
+                          <div>
+                            <input
+                              type="file"
+                              id="assignment-file"
+                              onChange={handleFileChange}
+                              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.mp3,.wav,.m4a,.ogg,.mp4,.avi,.mov,.wmv,.webm"
+                              className="hidden"
+                              disabled={uploading}
+                            />
+                            <label htmlFor="assignment-file" className="cursor-pointer">
+                              <UploadIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                              <p className="text-sm text-gray-600 mb-1">
+                                Click to upload or drag and drop
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                PDF, Word, Excel, PowerPoint, ZIP, Audio, or Video (Max 50MB)
+                              </p>
+                            </label>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <File className="w-8 h-8 text-blue-600" />
+                              <div className="text-left">
+                                <p className="text-sm font-medium text-gray-900">{assignmentFile.name}</p>
+                                <p className="text-xs text-gray-500">
+                                  {(assignmentFile.size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                            {uploading ? (
+                              <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAssignmentFile(null);
+                                  setAssignmentFileUrl('');
+                                }}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {assignmentFileUrl && !uploading && (
+                        <p className="text-xs text-green-600 mt-2">✓ File uploaded successfully</p>
+                      )}
                     </div>
                   </div>
                 )}

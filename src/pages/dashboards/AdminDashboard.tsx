@@ -144,6 +144,14 @@ export function AdminDashboard() {
       path: '/admin/lecture-material-management',
       badge: null
     },
+    {
+      title: '🔧 Setup Test Data',
+      description: 'Create test users and mock data',
+      icon: FileText,
+      color: 'from-gray-500 to-gray-600',
+      path: '/setup-test-users',
+      badge: null
+    },
   ];
 
   return (
@@ -279,24 +287,6 @@ export function AdminDashboard() {
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </button>
             ))}
-
-            {/* Setup Mock Data */}
-            <button
-              onClick={() => navigate('/setup-mock-data')}
-              className="group bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl shadow-sm hover:shadow-lg transition-all p-6 text-left border-2 border-dashed border-gray-300 hover:border-gray-400 relative overflow-hidden"
-            >
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="bg-gray-700 p-3 rounded-lg group-hover:scale-110 transition-transform">
-                    <FileText className="text-white" size={24} />
-                  </div>
-                </div>
-                <h4 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-gray-700 transition-colors">
-                  🔧 Setup Mock Data
-                </h4>
-                <p className="text-sm text-gray-600">For testing purposes</p>
-              </div>
-            </button>
           </div>
         </div>
       </div>

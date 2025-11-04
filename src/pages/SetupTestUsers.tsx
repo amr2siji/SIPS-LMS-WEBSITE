@@ -23,11 +23,25 @@ export function SetupTestUsers() {
       phone: '+94771234568',
     },
     {
-      email: 'student@sips.edu.lk',
+      email: 'student1@sips.edu.lk',
       password: 'Student@123456',
-      full_name: 'Michael Student',
+      full_name: 'Michael Anderson',
       role: 'student',
       phone: '+94771234569',
+    },
+    {
+      email: 'student2@sips.edu.lk',
+      password: 'Student@123456',
+      full_name: 'Emily Johnson',
+      role: 'student',
+      phone: '+94771234570',
+    },
+    {
+      email: 'student3@sips.edu.lk',
+      password: 'Student@123456',
+      full_name: 'David Williams',
+      role: 'student',
+      phone: '+94771234571',
     },
   ];
 
@@ -86,11 +100,28 @@ export function SetupTestUsers() {
           }
 
           if (user.role === 'student') {
+            // Get the latest intake IDs from database
+            const { data: intakeData } = await supabase
+              .from('intakes')
+              .select('id, program_id')
+              .eq('intake_year', 2024)
+              .eq('intake_month', 1)
+              .limit(1)
+              .single();
+
+            const intakeId = (intakeData as any)?.id || 'c10e8400-e29b-41d4-a716-446655440001';
+            const programId = (intakeData as any)?.program_id || '550e8400-e29b-41d4-a716-446655440011';
+
+            // Create student number
+            const studentNumber = `SIPS-2024-${String(testUsers.filter(u => u.role === 'student').indexOf(user) + 1).padStart(4, '0')}`;
+
             const { error: studentError } = await (supabase as any).from('students').insert({
               id: authData.user.id,
-              student_id: 'STU-2024-001',
-              batch_id: '750e8400-e29b-41d4-a716-446655440001',
-              program_id: '550e8400-e29b-41d4-a716-446655440001',
+              student_id: studentNumber,
+              program_id: programId,
+              intake_id: intakeId,
+              faculty_id: 'a10e8400-e29b-41d4-a716-446655440001',
+              department_id: 'b10e8400-e29b-41d4-a716-446655440001',
               enrollment_date: '2024-01-15',
               status: 'active',
               payment_status: 'paid',
@@ -105,27 +136,96 @@ export function SetupTestUsers() {
               continue;
             }
 
-            await (supabase as any).from('course_enrollments').insert([
-              {
-                student_id: authData.user.id,
-                course_id: '650e8400-e29b-41d4-a716-446655440001',
-                batch_id: '750e8400-e29b-41d4-a716-446655440001',
-                status: 'active',
-              },
-              {
-                student_id: authData.user.id,
-                course_id: '650e8400-e29b-41d4-a716-446655440002',
-                batch_id: '750e8400-e29b-41d4-a716-446655440001',
-                status: 'active',
-              },
-              {
-                student_id: authData.user.id,
-                course_id: '650e8400-e29b-41d4-a716-446655440003',
-                batch_id: '750e8400-e29b-41d4-a716-446655440001',
-                status: 'active',
-              },
-            ]);
+            // Enroll in student_programs
+            await (supabase as any).from('student_programs').insert({
+              student_id: authData.user.id,
+              program_id: programId,
+              intake_id: intakeId,
+              enrollment_date: '2024-01-15',
+              status: 'active',
+            });
 
+            // Get modules for this intake
+            const { data: modules } = await supabase
+              .from('modules')
+              .select('id')
+              .eq('intake_id', intakeId)
+              .limit(4);
+
+            if (modules && modules.length > 0) {
+              // Create assignments for student
+              const { data: assignments } = await supabase
+                .from('assignments')
+                .select('id, max_marks')
+                .eq('intake_id', intakeId)
+                .limit(4);
+
+              if (assignments && assignments.length > 0) {
+                // Create assignment submissions with scores
+                const assignmentSubmissions = (assignments as any[]).map((assignment: any, index: number) => ({
+                  assignment_id: assignment.id,
+                  student_id: authData.user!.id,
+                  score: 70 + (index * 5) + Math.floor(Math.random() * 10), // Random scores 70-95
+                  feedback: 'Good work! Keep it up.',
+                  graded_at: new Date().toISOString(),
+                  status: 'graded',
+                }));
+
+                await (supabase as any).from('assignment_submissions').insert(assignmentSubmissions);
+              }
+
+              // Create exam submissions with scores
+              const { data: exams } = await supabase
+                .from('exams')
+                .select('id, max_marks')
+                .eq('intake_id', intakeId)
+                .limit(4);
+
+              if (exams && exams.length > 0) {
+                const examSubmissions = (exams as any[]).map((exam: any, index: number) => ({
+                  exam_id: exam.id,
+                  student_id: authData.user!.id,
+                  score: 65 + (index * 7) + Math.floor(Math.random() * 12), // Random scores 65-95
+                  graded_at: new Date().toISOString(),
+                  status: 'graded',
+                }));
+
+                await (supabase as any).from('exam_submissions').insert(examSubmissions);
+              }
+
+              // Create overall scores
+              for (const module of modules as any[]) {
+                const assignmentAvg = 75 + Math.floor(Math.random() * 15);
+                const examAvg = 70 + Math.floor(Math.random() * 20);
+                const overall = Math.round((assignmentAvg * 0.4) + (examAvg * 0.6));
+                
+                let grade = 'F';
+                if (overall >= 90) grade = 'A+';
+                else if (overall >= 85) grade = 'A';
+                else if (overall >= 80) grade = 'A-';
+                else if (overall >= 75) grade = 'B+';
+                else if (overall >= 70) grade = 'B';
+                else if (overall >= 65) grade = 'B-';
+                else if (overall >= 60) grade = 'C+';
+                else if (overall >= 55) grade = 'C';
+                else if (overall >= 50) grade = 'C-';
+                else if (overall >= 45) grade = 'D';
+
+                await (supabase as any).from('overall_scores').insert({
+                  student_id: authData.user!.id,
+                  module_id: module.id,
+                  intake_id: intakeId,
+                  assignment_score: assignmentAvg,
+                  exam_score: examAvg,
+                  overall_score: overall,
+                  grade: grade,
+                  is_finalized: true,
+                  finalized_at: new Date().toISOString(),
+                });
+              }
+            }
+
+            // Create notifications
             await (supabase as any).from('notifications').insert([
               {
                 user_id: authData.user.id,
@@ -138,37 +238,61 @@ export function SetupTestUsers() {
           }
 
           if (user.role === 'instructor') {
-            await (supabase as any).from('instructors').insert([
-              {
-                instructor_id: authData.user.id,
-                course_id: '650e8400-e29b-41d4-a716-446655440001',
-                batch_id: '750e8400-e29b-41d4-a716-446655440001',
-              },
-              {
-                instructor_id: authData.user.id,
-                course_id: '650e8400-e29b-41d4-a716-446655440002',
-                batch_id: '750e8400-e29b-41d4-a716-446655440001',
-              },
-            ]);
+            // Get the latest intake data
+            const { data: intakeData } = await supabase
+              .from('intakes')
+              .select('id, program_id')
+              .eq('intake_year', 2024)
+              .eq('intake_month', 1)
+              .limit(1)
+              .single();
 
-            await (supabase as any).from('assignments').insert([
-              {
-                course_id: '650e8400-e29b-41d4-a716-446655440001',
-                instructor_id: authData.user.id,
-                title: 'Business Plan Assignment',
-                description: 'Create a comprehensive business plan for a startup',
-                due_date: '2024-12-31T23:59:59',
-                max_score: 100,
-              },
-              {
-                course_id: '650e8400-e29b-41d4-a716-446655440002',
-                instructor_id: authData.user.id,
-                title: 'Marketing Strategy Project',
-                description: 'Develop a marketing strategy for a product launch',
-                due_date: '2024-12-25T23:59:59',
-                max_score: 100,
-              },
-            ]);
+            const intakeId = (intakeData as any)?.id || 'c10e8400-e29b-41d4-a716-446655440001';
+
+            // Get modules for this intake
+            const { data: modules } = await supabase
+              .from('modules')
+              .select('id, module_code, module_name')
+              .eq('intake_id', intakeId)
+              .limit(4);
+
+            if (modules && modules.length > 0) {
+              // Create assignments for each module
+              for (const module of modules as any[]) {
+                await (supabase as any).from('assignments').insert({
+                  module_id: module.id,
+                  intake_id: intakeId,
+                  faculty_id: 'a10e8400-e29b-41d4-a716-446655440001',
+                  department_id: 'b10e8400-e29b-41d4-a716-446655440001',
+                  program_id: '550e8400-e29b-41d4-a716-446655440011',
+                  instructor_id: authData.user!.id,
+                  title: `${module.module_code} Assignment`,
+                  description: `Complete assignment for ${module.module_name}`,
+                  due_date: '2024-12-31',
+                  max_marks: 100,
+                  is_published: true,
+                  published_at: new Date().toISOString(),
+                });
+
+                // Create exam for each module
+                await (supabase as any).from('exams').insert({
+                  module_id: module.id,
+                  intake_id: intakeId,
+                  faculty_id: 'a10e8400-e29b-41d4-a716-446655440001',
+                  department_id: 'b10e8400-e29b-41d4-a716-446655440001',
+                  program_id: '550e8400-e29b-41d4-a716-446655440011',
+                  instructor_id: authData.user!.id,
+                  exam_name: `${module.module_code} Final Exam`,
+                  description: `Final examination for ${module.module_name}`,
+                  exam_date: '2024-12-20',
+                  exam_time: '09:00 AM',
+                  duration_minutes: 180,
+                  max_marks: 100,
+                  is_published: true,
+                  published_at: new Date().toISOString(),
+                });
+              }
+            }
           }
 
           newResults.push({
@@ -212,7 +336,12 @@ export function SetupTestUsers() {
                 <strong>Instructor:</strong> instructor@sips.edu.lk / Instructor@123456
               </div>
               <div>
-                <strong>Student:</strong> student@sips.edu.lk / Student@123456
+                <strong>Students:</strong>
+                <ul className="ml-4 mt-1">
+                  <li>student1@sips.edu.lk / Student@123456 (Michael Anderson)</li>
+                  <li>student2@sips.edu.lk / Student@123456 (Emily Johnson)</li>
+                  <li>student3@sips.edu.lk / Student@123456 (David Williams)</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -263,16 +392,26 @@ export function SetupTestUsers() {
 
           <div className="mt-6 text-sm text-gray-600">
             <p className="mb-2">
-              <strong>Note:</strong> This will create 3 test accounts:
+              <strong>Note:</strong> This will create 5 test accounts with complete marks management data:
             </p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Admin user with full system access</li>
-              <li>Instructor user with 2 courses assigned</li>
-              <li>Student user enrolled in 3 courses</li>
+              <li>1 Admin user with full system access</li>
+              <li>1 Instructor user with 4 modules, assignments, and exams</li>
+              <li>3 Student users with:
+                <ul className="ml-6 mt-1 space-y-1">
+                  <li>• Enrollment in BBA program (January 2024 intake)</li>
+                  <li>• 4 modules with score weights configured</li>
+                  <li>• Assignment submissions with grades</li>
+                  <li>• Exam submissions with grades</li>
+                  <li>• Overall scores calculated with final grades</li>
+                </ul>
+              </li>
             </ul>
             <p className="mt-4 text-amber-600">
-              <strong>Warning:</strong> If users already exist, this will show an error. You
-              can safely ignore duplicate user errors.
+              <strong>Warning:</strong> Make sure you have run the migration <code className="bg-amber-100 px-1 rounded">20251103_marks_management_mock_data.sql</code> first to create faculties, departments, programs, intakes, and modules.
+            </p>
+            <p className="mt-2 text-amber-600">
+              If users already exist, this will show an error. You can safely ignore duplicate user errors.
             </p>
           </div>
         </div>

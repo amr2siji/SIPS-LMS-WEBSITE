@@ -1,4 +1,5 @@
 import { Users } from 'lucide-react';
+import { useState } from 'react';
 
 export function About() {
   const teamMembers = [
@@ -7,37 +8,62 @@ export function About() {
       title: "Director / Lecturer",
       qualifications: "PhD (Reading, UOC) | MSc (USJP) | BBM (UWU) | CIMA (Reading) | PGD (OTHM L7 - SML)",
       bio: "An accomplished academic and administrator with over 6 years of experience in the higher education sector, having served at Uva Wellassa University, Metropolitan College, Lyceum Campus, and Aquinas College of Higher Studies (as Head of Faculty). Currently contributes to academia as a visiting lecturer across multiple universities and higher education institutions.",
-      image: "/team/charunadi.jpg" // Placeholder - you'll add the actual image
+      imageBase: "/team/charunadi"
     },
     {
       name: "Duranga Senanayake",
       title: "Director / Lecturer",
       qualifications: "PhD (Reading, AUS) | MSc (UOP) | BSc. (UWU)",
       bio: "A dedicated academic professional with over 5 years of experience in higher education and a solid industrial background in Mechatronics, Robotics, and applied engineering technologies.",
-      image: "/team/duranga.jpg" // Placeholder - you'll add the actual image
+      imageBase: "/team/duranga"
     },
     {
       name: "Pabasara Amarawardena",
       title: "Director",
       qualifications: "MBA, BSc (Hons) in Chemistry",
       bio: "A passionate and dedicated professional with over 10 years of experience in academic administration, contributing at both strategic and operational levels within the higher education sector. Demonstrated success in leading and supporting reputed higher education institutions, driving institutional excellence through strategic leadership, process improvement, and operational efficiency.",
-      image: "/team/pabasara.jpg" // Placeholder - you'll add the actual image
+      imageBase: "/team/pabasara"
     },
     {
       name: "Ruwin Ratnayake",
       title: "Academic Consultant",
       qualifications: "BSc (Hons) in IT, Cyber Security",
       bio: "An experienced DevSecOps Engineer and a graduate of the Sri Lanka Institute of Information Technology, specializing in Cyber Security. Recognized for a strong work ethic, problem-solving mindset, and a determined, never-give-up attitude toward achieving excellence in both technical and collaborative environments.",
-      image: "/team/ruwin.jpg" // Placeholder - you'll add the actual image
+      imageBase: "/team/ruwin"
     },
     {
       name: "Tharushi Nimanthika",
       title: "Academic Consultant",
       qualifications: "MBA, MBCS Information Technology",
       bio: "Possesses extensive experience in academic administration since 2019, demonstrating consistent commitment to academic quality, institutional excellence, and continuous professional growth within the higher education sector.",
-      image: "/team/tharushi.jpg" // Placeholder - you'll add the actual image
+      imageBase: "/team/tharushi"
     }
   ];
+
+  // Component to handle image with multiple format fallbacks
+  const TeamMemberImage = ({ imageBase, name }: { imageBase: string; name: string }) => {
+    const [imageExtensions] = useState(['.jpeg', '.jpg', '.png', '.svg']);
+    const [currentExtensionIndex, setCurrentExtensionIndex] = useState(0);
+
+    const handleImageError = () => {
+      if (currentExtensionIndex < imageExtensions.length - 1) {
+        setCurrentExtensionIndex(currentExtensionIndex + 1);
+      }
+    };
+
+    const currentImageSrc = currentExtensionIndex < imageExtensions.length
+      ? imageBase + imageExtensions[currentExtensionIndex]
+      : 'https://via.placeholder.com/256x256/10b981/ffffff?text=' + name.split(' ').map(n => n[0]).join('');
+
+    return (
+      <img
+        src={currentImageSrc}
+        alt={name}
+        className="w-full h-full object-cover"
+        onError={handleImageError}
+      />
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -83,15 +109,7 @@ export function About() {
               {/* Image Section */}
               <div className="md:w-1/3 bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center p-8">
                 <div className="w-64 h-64 rounded-full overflow-hidden border-8 border-white shadow-lg">
-                  <img
-                    src={member.image}
-                    alt={member.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback to placeholder if image not found
-                      e.currentTarget.src = 'https://via.placeholder.com/256x256/10b981/ffffff?text=' + member.name.split(' ').map(n => n[0]).join('');
-                    }}
-                  />
+                  <TeamMemberImage imageBase={member.imageBase} name={member.name} />
                 </div>
               </div>
 
