@@ -5,23 +5,23 @@ export function Home() {
   return (
     <div className="min-h-screen">
       <section
-        className="relative h-[600px] flex items-center justify-center text-white"
+        className="relative h-[600px] flex items-center justify-center text-white animate-fade-in"
         style={{
           backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=1920)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
-        <div className="text-center max-w-4xl px-4">
-          <h1 className="text-3xl md:text-4xl font-bold mb-6">
+        <div className="text-center max-w-4xl px-4 animate-slide-up">
+          <h1 className="text-3xl md:text-4xl font-bold mb-6 animate-fade-in-delay-1">
             WE ARE DESIGNED TO EMPOWER THE<br />NEXT GENERATION OF LEADERS
           </h1>
-          <p className="text-xl md:text-2xl mb-8 text-gray-200">
+          <p className="text-xl md:text-2xl mb-8 text-gray-200 animate-fade-in-delay-2">
             Learn Today. Lead Tomorrow
           </p>
           <Link
             to="/programmes"
-            className="inline-block bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all transform hover:scale-105"
+            className="inline-block bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all transform hover:scale-105 animate-fade-in-delay-3"
           >
             Explore Programmes
           </Link>
@@ -30,13 +30,13 @@ export function Home() {
 
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 animate-fade-in-up">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">About <span className="font-baskerville">SIPS</span></h2>
             <div className="w-24 h-1 bg-amber-500 mx-auto"></div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 mb-16">
-            <div className="bg-emerald-50 p-8 rounded-lg">
+            <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-100 hover:scale-105 transition-transform duration-300">
               <Target className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Mission</h3>
               <p className="text-gray-700 leading-relaxed">
@@ -44,7 +44,7 @@ export function Home() {
               </p>
             </div>
 
-            <div className="bg-emerald-50 p-8 rounded-lg">
+            <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-200 hover:scale-105 transition-transform duration-300">
               <Lightbulb className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Vision</h3>
               <p className="text-gray-700 leading-relaxed">
@@ -52,7 +52,7 @@ export function Home() {
               </p>
             </div>
 
-            <div className="bg-emerald-50 p-8 rounded-lg">
+            <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-300 hover:scale-105 transition-transform duration-300">
               <Heart className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Core Values</h3>
               <ul className="text-gray-700 space-y-2">
@@ -73,25 +73,33 @@ export function Home() {
           </div>
 
           <div className="grid md:grid-cols-4 gap-6 text-center">
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <Award className="text-amber-500 mx-auto mb-3" size={40} />
-              <h4 className="font-bold text-gray-900 mb-2">Transformative Education</h4>
-              <p className="text-gray-600 text-sm">Skill-based & Student-Centric teaching style</p>
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200">
+              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <Award className="text-white" size={40} />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-3 text-xl">Transformative Education</h4>
+              <p className="text-gray-700 text-base font-medium">Skill-based & Student-Centric teaching style</p>
             </div>
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <GraduationCap className="text-amber-500 mx-auto mb-3" size={40} />
-              <h4 className="font-bold text-gray-900 mb-2">Flexible Learning</h4>
-              <p className="text-gray-600 text-sm">Blended model</p>
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200">
+              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <GraduationCap className="text-white" size={40} />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-3 text-xl">Flexible Learning</h4>
+              <p className="text-gray-700 text-base font-medium">Blended model</p>
             </div>
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <BookOpen className="text-amber-500 mx-auto mb-3" size={40} />
-              <h4 className="font-bold text-gray-900 mb-2">Industry Experts</h4>
-              <p className="text-gray-600 text-sm">Learn from the best in the industry</p>
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200">
+              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <Users className="text-white" size={40} />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-3 text-xl">Industry Experts</h4>
+              <p className="text-gray-700 text-base font-medium">Learn from the best in the industry</p>
             </div>
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <Users className="text-amber-500 mx-auto mb-3" size={40} />
-              <h4 className="font-bold text-gray-900 mb-2">Life Long Learning</h4>
-              <p className="text-gray-600 text-sm">Learning never stops. Education for Students, Professionals and Career transitioners</p>
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200">
+              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <BookOpen className="text-white" size={40} />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-3 text-xl">Life Long Learning</h4>
+              <p className="text-gray-700 text-base font-medium">Learning never stops. Education for Students, Professionals and Career transitioners</p>
             </div>
           </div>
         </div>
@@ -99,7 +107,7 @@ export function Home() {
 
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 animate-fade-in-up">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Academic Quality</h2>
             <div className="w-24 h-1 bg-amber-500 mx-auto mb-6"></div>
             <p className="text-xl text-gray-700 max-w-3xl mx-auto">
@@ -108,7 +116,7 @@ export function Home() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in-up animation-delay-100 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
               <Award className="text-emerald-700 mb-4" size={40} />
               <h3 className="text-xl font-bold text-gray-900 mb-3">Accreditations</h3>
               <p className="text-gray-700">
@@ -116,7 +124,7 @@ export function Home() {
               </p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in-up animation-delay-200 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
               <Users className="text-emerald-700 mb-4" size={40} />
               <h3 className="text-xl font-bold text-gray-900 mb-3">Expert Faculty</h3>
               <p className="text-gray-700">
@@ -124,7 +132,7 @@ export function Home() {
               </p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in-up animation-delay-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
               <BookOpen className="text-emerald-700 mb-4" size={40} />
               <h3 className="text-xl font-bold text-gray-900 mb-3">Our Partners</h3>
               <p className="text-gray-700">

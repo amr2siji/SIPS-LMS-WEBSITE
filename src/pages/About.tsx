@@ -95,8 +95,8 @@ export function About() {
 
       {/* Team Members Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-3 mb-4">
+        <div className="text-center mb-16 animate-fade-in-up">
+          <div className="bg-emerald-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
             <Users className="text-emerald-700" size={48} />
           </div>
           <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Leadership Team</h2>
@@ -109,7 +109,7 @@ export function About() {
           {teamMembers.map((member, index) => (
             <div
               key={index}
-              className={`bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow ${
+              className={`bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 animate-fade-in-up animation-delay-${(index + 1) * 100} hover:-translate-y-2 ${
                 index % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'
               } flex flex-col md:flex`}
             >
@@ -133,7 +133,7 @@ export function About() {
         </div>
 
         {/* Call to Action */}
-        <div className="mt-16 bg-gradient-to-r from-emerald-700 to-emerald-900 rounded-2xl p-12 text-center text-white">
+        <div className="mt-16 bg-gradient-to-r from-emerald-700 to-emerald-900 rounded-2xl p-12 text-center text-white animate-fade-in-up hover:scale-105 transition-transform duration-300">
           <h2 className="text-3xl font-bold mb-4">Join Our Academic Community</h2>
           <p className="text-lg text-emerald-100 mb-8 max-w-2xl mx-auto">
             Experience world-class education guided by industry experts and dedicated professionals committed to your success.
