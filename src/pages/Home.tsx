@@ -29,34 +29,34 @@ export function Home() {
 
         {/* Feature Cards on Hero Image */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full relative md:absolute md:bottom-[-120px] left-0 right-0 z-10">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
-            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-100">
-              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-                <Award className="text-white" size={32} />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 text-center">
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-3 md:p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-100">
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 shadow-lg">
+                <Award className="text-white w-6 h-6 md:w-8 md:h-8" />
               </div>
-              <h4 className="font-bold text-gray-900 mb-2 text-lg">Transformative Education</h4>
-              <p className="text-gray-700 text-sm font-medium text-justify">Skill-based & Student-Centric teaching style</p>
+              <h4 className="font-bold text-gray-900 mb-1 md:mb-2 text-base md:text-lg">Transformative Education</h4>
+              <p className="text-gray-700 text-xs md:text-sm font-medium">Skill-based & Student-Centric teaching style</p>
             </div>
-            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-200">
-              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-                <GraduationCap className="text-white" size={32} />
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-3 md:p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-200">
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 shadow-lg">
+                <GraduationCap className="text-white w-6 h-6 md:w-8 md:h-8" />
               </div>
-              <h4 className="font-bold text-gray-900 mb-2 text-lg">Flexible Learning</h4>
-              <p className="text-gray-700 text-sm font-medium text-justify">Blended model</p>
+              <h4 className="font-bold text-gray-900 mb-1 md:mb-2 text-base md:text-lg">Flexible Learning</h4>
+              <p className="text-gray-700 text-xs md:text-sm font-medium">Blended model</p>
             </div>
-            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-300">
-              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-                <Users className="text-white" size={32} />
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-3 md:p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-300">
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 shadow-lg">
+                <Users className="text-white w-6 h-6 md:w-8 md:h-8" />
               </div>
-              <h4 className="font-bold text-gray-900 mb-2 text-lg">Industry Experts</h4>
-              <p className="text-gray-700 text-sm font-medium text-justify">Learn from the best in the industry</p>
+              <h4 className="font-bold text-gray-900 mb-1 md:mb-2 text-base md:text-lg">Industry Experts</h4>
+              <p className="text-gray-700 text-xs md:text-sm font-medium">Learn from the best in the industry</p>
             </div>
-            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-400">
-              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
-                <BookOpen className="text-white" size={32} />
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-3 md:p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-400">
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 shadow-lg">
+                <BookOpen className="text-white w-6 h-6 md:w-8 md:h-8" />
               </div>
-              <h4 className="font-bold text-gray-900 mb-2 text-lg">Life Long Learning</h4>
-              <p className="text-gray-700 text-sm font-medium text-justify">Learning never stops. Education for Students, Professionals and Career transitioners</p>
+              <h4 className="font-bold text-gray-900 mb-1 md:mb-2 text-base md:text-lg">Life Long Learning</h4>
+              <p className="text-gray-700 text-xs md:text-sm font-medium">Learning never stops. Education for Students, Professionals and Career transitioners</p>
             </div>
           </div>
         </div>
@@ -73,7 +73,7 @@ export function Home() {
             <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-100 hover:scale-105 transition-transform duration-300">
               <Target className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Mission</h3>
-              <p className="text-gray-700 leading-relaxed text-justify">
+              <p className="text-gray-700 leading-relaxed">
                 To empower students with transformative education that integrates innovation, sustainability, and skill-based learning, fostering intellectual growth and global readiness. We are committed to delivering quality learning experiences, nurturing future leaders, and contributing to the sustainable development of Sri Lanka and beyond.
               </p>
             </div>
@@ -81,7 +81,7 @@ export function Home() {
             <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-200 hover:scale-105 transition-transform duration-300">
               <Lightbulb className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Vision</h3>
-              <p className="text-gray-700 leading-relaxed text-justify">
+              <p className="text-gray-700 leading-relaxed">
                 To be the most trusted center of excellence for Next-Generation Education in Sri Lanka.
               </p>
             </div>
@@ -92,15 +92,15 @@ export function Home() {
               <ul className="text-gray-700 space-y-2">
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span className="text-justify"><strong>Empowerment -</strong> Commitment to giving students the tools, knowledge, and confidence to take charge of their own learning and career paths</span>
+                  <span>Empowerment - Commitment to giving students the tools, knowledge, and confidence to take charge of their own learning and career paths</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span className="text-justify"><strong>Entrepreneurial -</strong> Fostering an entrepreneurial mindset among students, encouraging innovation, creativity, & problem-solving</span>
+                  <span>Entreprenueral  - Fostering an entrepreneurial mindset among students, encouraging innovation, creativity, & problem-solving</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span className="text-justify"><strong>Excellence -</strong> Dedication to high standards in education, training, and personal development</span>
+                  <span>Excellence - Dedication to high standards in education, training, and personal development</span>
                 </li>
               </ul>
             </div>
@@ -122,7 +122,7 @@ export function Home() {
             <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in-up animation-delay-100 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
               <Award className="text-emerald-700 mb-4" size={40} />
               <h3 className="text-xl font-bold text-gray-900 mb-3">Accreditations</h3>
-              <p className="text-gray-700 text-justify">
+              <p className="text-gray-700">
                 Internationally recognized programs accredited by leading educational bodies, ensuring the highest standards of education.
               </p>
             </div>
@@ -130,7 +130,7 @@ export function Home() {
             <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in-up animation-delay-200 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
               <Users className="text-emerald-700 mb-4" size={40} />
               <h3 className="text-xl font-bold text-gray-900 mb-3">Expert Faculty</h3>
-              <p className="text-gray-700 text-justify">
+              <p className="text-gray-700">
                 Learn from industry professionals and experienced academics who bring real-world insights to the classroom.
               </p>
             </div>
@@ -138,7 +138,7 @@ export function Home() {
             <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in-up animation-delay-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
               <BookOpen className="text-emerald-700 mb-4" size={40} />
               <h3 className="text-xl font-bold text-gray-900 mb-3">Our Partners</h3>
-              <p className="text-gray-700 text-justify">
+              <p className="text-gray-700">
                 Strong partnerships with leading corporations and institutions worldwide, providing students with excellent opportunities.
               </p>
             </div>
