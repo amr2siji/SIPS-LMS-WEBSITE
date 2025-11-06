@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import {
   BookOpen, FileText, Upload, DollarSign,
-  Calendar, CheckCircle, Clock, LogOut
+  Calendar, CheckCircle, Clock, LogOut, Bell, User, ChevronDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -27,6 +27,7 @@ export function StudentDashboard() {
     totalMaterials: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -121,13 +122,67 @@ export function StudentDashboard() {
                 <p className="text-sm md:text-base text-emerald-100">{profile?.full_name}</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-5 py-2.5 rounded-lg transition-all font-medium border border-white/20"
-            >
-              <LogOut size={18} />
-              Logout
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                className="relative flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-4 py-2.5 rounded-lg transition-all font-medium border border-white/20"
+                title="Notifications"
+              >
+                <Bell size={18} />
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  3
+                </span>
+              </button>
+              
+              {/* Profile Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-4 py-2.5 rounded-lg transition-all font-medium border border-white/20"
+                >
+                  <User size={18} />
+                  <span className="hidden md:inline">Profile</span>
+                  <ChevronDown size={16} className={`transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                    <div className="px-4 py-3 border-b border-gray-200">
+                      <p className="text-sm font-semibold text-gray-900">{profile?.full_name}</p>
+                      <p className="text-xs text-gray-600">{profile?.email}</p>
+                      <p className="text-xs text-emerald-600 font-medium mt-1">Student</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        navigate('/student/profile');
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <User size={16} />
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        navigate('/student/settings');
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <FileText size={16} />
+                      Settings
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-5 py-2.5 rounded-lg transition-all font-medium border border-white/20"
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </nav>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Users, BookOpen, FileText, DollarSign, LogOut, GraduationCap } from 'lucide-react';
+import { Users, BookOpen, FileText, DollarSign, LogOut, GraduationCap, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export function AdminDashboard() {
@@ -169,13 +169,24 @@ export function AdminDashboard() {
                 <p className="text-sm md:text-base text-emerald-100">{profile?.full_name}</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-5 py-2.5 rounded-lg transition-all font-medium border border-white/20"
-            >
-              <LogOut size={18} />
-              Logout
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                className="relative flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-4 py-2.5 rounded-lg transition-all font-medium border border-white/20"
+                title="Notifications"
+              >
+                <Bell size={18} />
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  5
+                </span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-5 py-2.5 rounded-lg transition-all font-medium border border-white/20"
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </nav>
