@@ -58,15 +58,15 @@ export function Home() {
               <ul className="text-gray-700 space-y-2">
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span>Empowerment</span>
+                  <span>Empowerment - Commitment to giving students the tools, knowledge, and confidence to take charge of their own learning and career paths</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span>Entrepreneurial</span>
+                  <span>Entreprenueral  - Fostering an entrepreneurial mindset among students, encouraging innovation, creativity, & problem-solving</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span>Excellence</span>
+                  <span>Excellence - Dedication to high standards in education, training, and personal development</span>
                 </li>
               </ul>
             </div>
