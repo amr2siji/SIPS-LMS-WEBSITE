@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, CheckCircle, XCircle, Clock, FileText, Mail, Phone, User, MapPin, Calendar, GraduationCap, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Search, CheckCircle, XCircle, Clock, FileText, Mail, Phone, User, MapPin, Calendar, GraduationCap, AlertCircle, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface Application {
@@ -38,9 +38,25 @@ interface Application {
   };
 }
 
+interface Inquiry {
+  id: string;
+  full_name: string;
+  email: string;
+  phone_number: string;
+  program_id: string | null;
+  message: string | null;
+  status: string;
+  created_at: string;
+  programs?: {
+    name: string;
+  };
+}
+
 export function ReviewApplications() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'applications' | 'inquiries'>('applications');
   const [applications, setApplications] = useState<Application[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('pending');
@@ -51,8 +67,12 @@ export function ReviewApplications() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    loadApplications();
-  }, []);
+    if (activeTab === 'applications') {
+      loadApplications();
+    } else {
+      loadInquiries();
+    }
+  }, [activeTab]);
 
   const loadApplications = async () => {
     try {
@@ -77,6 +97,46 @@ export function ReviewApplications() {
       console.error('Error loading applications:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadInquiries = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('inquiries')
+        .select(`
+          *,
+          programs (
+            name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInquiries(data || []);
+    } catch (error) {
+      console.error('Error loading inquiries:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInquiryStatusUpdate = async (inquiryId: string, newStatus: string) => {
+    try {
+      const supabaseAny = supabase as any;
+      const { error } = await supabaseAny
+        .from('inquiries')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', inquiryId);
+
+      if (error) throw error;
+      
+      alert('Inquiry status updated successfully');
+      loadInquiries();
+    } catch (error) {
+      console.error('Error updating inquiry:', error);
+      alert('Failed to update inquiry status');
     }
   };
 
@@ -190,6 +250,18 @@ export function ReviewApplications() {
     return matchesSearch && matchesStatus;
   });
 
+  const filteredInquiries = inquiries.filter(inq => {
+    const matchesSearch = 
+      inq.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inq.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inq.phone_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inq.programs?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = filterStatus === 'all' || inq.status === filterStatus;
+    
+    return matchesSearch && matchesStatus;
+  });
+
   const getStatusBadge = (status: string) => {
     const styles = {
       pending: 'bg-amber-100 text-amber-800 border-amber-200',
@@ -223,7 +295,8 @@ export function ReviewApplications() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        {activeTab === 'applications' ? (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-amber-500">
             <div className="flex items-center justify-between">
               <div>
@@ -261,6 +334,69 @@ export function ReviewApplications() {
             </div>
           </div>
         </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-amber-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{inquiries.filter(i => i.status === 'pending').length}</div>
+                  <div className="text-gray-600">Pending</div>
+                </div>
+                <Clock className="text-amber-500" size={40} />
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{inquiries.filter(i => i.status === 'contacted').length}</div>
+                  <div className="text-gray-600">Contacted</div>
+                </div>
+                <CheckCircle className="text-green-500" size={40} />
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{inquiries.length}</div>
+                  <div className="text-gray-600">Total Inquiries</div>
+                </div>
+                <MessageCircle className="text-blue-500" size={40} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow-md mb-6">
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTab('applications')}
+              className={`flex-1 py-4 px-6 text-center font-semibold transition-colors ${
+                activeTab === 'applications'
+                  ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50'
+                  : 'text-gray-600 hover:text-emerald-600 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <FileText size={20} />
+                Review Applications
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('inquiries')}
+              className={`flex-1 py-4 px-6 text-center font-semibold transition-colors ${
+                activeTab === 'inquiries'
+                  ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50'
+                  : 'text-gray-600 hover:text-emerald-600 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <MessageCircle size={20} />
+                Inquire Applications
+              </div>
+            </button>
+          </div>
+        </div>
 
         {/* Search and Filter */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -269,7 +405,7 @@ export function ReviewApplications() {
               <Search className="absolute left-3 top-3 text-gray-400" size={20} />
               <input
                 type="text"
-                placeholder="Search by name, email, NIC, or program..."
+                placeholder={activeTab === 'applications' ? "Search by name, email, NIC, or program..." : "Search by name, email, phone, or program..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -281,28 +417,39 @@ export function ReviewApplications() {
               className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
               <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="under_review">Under Review</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              {activeTab === 'applications' ? (
+                <>
+                  <option value="pending">Pending</option>
+                  <option value="under_review">Under Review</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </>
+              ) : (
+                <>
+                  <option value="pending">Pending</option>
+                  <option value="contacted">Contacted</option>
+                  <option value="resolved">Resolved</option>
+                </>
+              )}
             </select>
           </div>
         </div>
 
-        {/* Applications List */}
+        {/* Applications/Inquiries List */}
         <div className="space-y-4">
           {loading ? (
             <div className="text-center py-12 bg-white rounded-lg shadow-md">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
-              <p className="mt-4 text-gray-600">Loading applications...</p>
+              <p className="mt-4 text-gray-600">Loading {activeTab === 'applications' ? 'applications' : 'inquiries'}...</p>
             </div>
-          ) : filteredApplications.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg shadow-md">
-              <p className="text-gray-600">No applications found</p>
-            </div>
-          ) : (
-            filteredApplications.map((application) => (
-              <div key={application.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+          ) : activeTab === 'applications' ? (
+            filteredApplications.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-lg shadow-md">
+                <p className="text-gray-600">No applications found</p>
+              </div>
+            ) : (
+              filteredApplications.map((application) => (
+                <div key={application.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-3">
@@ -404,7 +551,77 @@ export function ReviewApplications() {
                   </div>
                 </div>
               </div>
-            ))
+              ))
+            )
+          ) : (
+            filteredInquiries.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-lg shadow-md">
+                <p className="text-gray-600">No inquiries found</p>
+              </div>
+            ) : (
+              filteredInquiries.map((inquiry) => (
+                <div key={inquiry.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">{inquiry.full_name}</h3>
+                          {inquiry.programs?.name && (
+                            <p className="text-sm text-emerald-600 font-semibold">{inquiry.programs.name}</p>
+                          )}
+                        </div>
+                        <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(inquiry.status)}`}>
+                          {inquiry.status.toUpperCase()}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
+                        <div className="flex items-center gap-2">
+                          <Mail size={14} />
+                          <span>{inquiry.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone size={14} />
+                          <span>{inquiry.phone_number}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock size={14} />
+                          <span>Inquired: {new Date(inquiry.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      {inquiry.message && (
+                        <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                          <p className="text-sm font-semibold text-gray-800 mb-1">Message:</p>
+                          <p className="text-sm text-gray-700">{inquiry.message}</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex md:flex-col gap-2">
+                      {inquiry.status === 'pending' && (
+                        <button
+                          onClick={() => handleInquiryStatusUpdate(inquiry.id, 'contacted')}
+                          className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle size={18} />
+                          Mark as Contacted
+                        </button>
+                      )}
+                      {inquiry.status === 'contacted' && (
+                        <button
+                          onClick={() => handleInquiryStatusUpdate(inquiry.id, 'resolved')}
+                          className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle size={18} />
+                          Mark as Resolved
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )
           )}
         </div>
 
