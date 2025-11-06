@@ -26,14 +26,14 @@ export function About() {
     },
     {
       name: "Ruwin Ratnayake",
-      title: "Academic Consultant",
+      title: "Lecturer / Consultant",
       qualifications: "BSc (Hons) in IT, Cyber Security",
       bio: "An experienced DevSecOps Engineer and a graduate of the Sri Lanka Institute of Information Technology, specializing in Cyber Security. Recognized for a strong work ethic, problem-solving mindset, and a determined, never-give-up attitude toward achieving excellence in both technical and collaborative environments.",
       imageBase: "/team/ruwin"
     },
     {
       name: "Tharushi Nimanthika",
-      title: "Academic Consultant",
+      title: "Lecturer / Consultant",
       qualifications: "MBA, MBCS Information Technology",
       bio: "Possesses extensive experience in academic administration since 2019, demonstrating consistent commitment to academic quality, institutional excellence, and continuous professional growth within the higher education sector.",
       imageBase: "/team/tharushi"
