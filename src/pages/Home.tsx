@@ -5,14 +5,14 @@ export function Home() {
   return (
     <div className="min-h-screen">
       <section
-        className="relative pb-64 pt-32 flex flex-col items-center justify-center text-white animate-fade-in"
+        className="relative pb-8 md:pb-64 pt-32 flex flex-col items-center justify-center text-white animate-fade-in"
         style={{
           backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=1920)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
-        <div className="text-center max-w-4xl px-4 animate-slide-up mb-16">
+        <div className="text-center max-w-4xl px-4 animate-slide-up mb-8 md:mb-16">
           <h1 className="text-3xl md:text-4xl font-bold mb-6 animate-fade-in-delay-1">
             WE ARE DESIGNED TO EMPOWER THE<br />NEXT GENERATION OF LEADERS
           </h1>
@@ -28,8 +28,8 @@ export function Home() {
         </div>
 
         {/* Feature Cards on Hero Image */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full absolute bottom-[-120px] left-0 right-0">
-          <div className="grid md:grid-cols-4 gap-6 text-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full relative md:absolute md:bottom-[-120px] left-0 right-0 z-10">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
             <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-100">
               <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
                 <Award className="text-white" size={32} />
@@ -62,7 +62,7 @@ export function Home() {
         </div>
       </section>
 
-      <section className="py-16 bg-white mt-32">
+      <section className="py-16 bg-white mt-0 md:mt-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 animate-fade-in-up">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">About <span className="font-baskerville">SIPS</span></h2>
