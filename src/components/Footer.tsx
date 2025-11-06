@@ -5,10 +5,10 @@ export function Footer() {
   return (
     <footer className="bg-gradient-to-r from-slate-800 via-emerald-700 to-slate-800 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="flex flex-col items-center text-center">
             <img src="/sips.png" alt="SIPS Logo" className="h-20 w-[70px] object-contain mb-3" />
-            <p className="text-base font-semibold text-white mb-2">
+            <p className="text-base font-semibold text-white mb-2 font-baskerville">
               Steller Institute of Professional Studies
             </p>
             <p className="text-sm text-gray-300">
@@ -19,64 +19,47 @@ export function Footer() {
 
           <div>
             <h4 className="text-lg font-semibold mb-4 text-amber-400">Quick Links</h4>
-            <ul className="space-y-2">
-              <li>
-                <Link to="/" className="text-emerald-100 hover:text-white transition-colors">
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link to="/programmes" className="text-emerald-100 hover:text-white transition-colors">
-                  Programmes
-                </Link>
-              </li>
-              <li>
-                <Link to="/about" className="text-emerald-100 hover:text-white transition-colors">
-                  Meet our Team
-                </Link>
-              </li>
-              <li>
-                <Link to="/apply" className="text-emerald-100 hover:text-white transition-colors">
-                  Apply Now
-                </Link>
-              </li>
-              <li>
-                <Link to="/student-life" className="text-emerald-100 hover:text-white transition-colors">
-                  Student Life
-                </Link>
-              </li>
-              <li>
-                <Link to="/register" className="text-emerald-100 hover:text-white transition-colors">
-                  Register Online
-                </Link>
-              </li>
-              <li>
-                <Link to="/login" className="text-emerald-100 hover:text-white transition-colors">
-                  LMS Portal
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-lg font-semibold mb-4 text-amber-400">Get Started</h4>
-            <ul className="space-y-2">
-              <li>
-                <Link to="/programmes" className="text-emerald-100 hover:text-white transition-colors">
-                  View Programmes
-                </Link>
-              </li>
-              <li>
-                <Link to="/apply" className="text-emerald-100 hover:text-white transition-colors">
-                  How to Apply
-                </Link>
-              </li>
-              <li>
-                <Link to="/register" className="text-emerald-100 hover:text-white transition-colors">
-                  Registration Process
-                </Link>
-              </li>
-            </ul>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+              <div className="space-y-2">
+                <div>
+                  <Link to="/" className="text-emerald-100 hover:text-white transition-colors">
+                    Home
+                  </Link>
+                </div>
+                <div>
+                  <Link to="/programmes" className="text-emerald-100 hover:text-white transition-colors">
+                    Programmes
+                  </Link>
+                </div>
+                <div>
+                  <Link to="/blog" className="text-emerald-100 hover:text-white transition-colors">
+                    Blog
+                  </Link>
+                </div>
+                <div>
+                  <Link to="/about" className="text-emerald-100 hover:text-white transition-colors">
+                    Meet our Team
+                  </Link>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <Link to="/apply" className="text-emerald-100 hover:text-white transition-colors">
+                    Apply Now
+                  </Link>
+                </div>
+                <div>
+                  <Link to="/register" className="text-emerald-100 hover:text-white transition-colors">
+                    Register Online
+                  </Link>
+                </div>
+                <div>
+                  <Link to="/login" className="text-emerald-100 hover:text-white transition-colors">
+                    LMS Portal
+                  </Link>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -138,7 +121,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-slate-600 mt-8 pt-8 text-center text-emerald-100">
-          <p>&copy; {new Date().getFullYear()} Steller Institute of Professional Studies. All rights reserved.</p>
+          <p className="font-baskerville">&copy; {new Date().getFullYear()} Steller Institute of Professional Studies. All rights reserved.</p>
         </div>
       </div>
     </footer>

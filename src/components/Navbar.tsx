@@ -35,13 +35,13 @@ export function Navbar() {
               }`} 
             />
             <div className="flex flex-col">
-              <span className={`font-bold font-baskerville transition-all duration-300 ${
-                isScrolled ? 'text-2xl' : 'text-5xl'
+              <span className={` font-baskerville transition-all duration-300 ${
+                isScrolled ? 'text-xl' : 'text-3xl'
               }`}>
                 SIPS
               </span>
-              <span className={`text-emerald-100 transition-all duration-300 ${
-                isScrolled ? 'text-sm' : 'text-xl'
+              <span className={`text-emerald-100 font-baskerville transition-all duration-300 ${
+                isScrolled ? 'text-xs' : 'text-base'
               }`}>
                 Steller Institute of Professional Studies
               </span>

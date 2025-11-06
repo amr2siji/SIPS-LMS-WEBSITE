@@ -14,7 +14,7 @@ export function Home() {
       >
         <div className="text-center max-w-4xl px-4">
           <h1 className="text-3xl md:text-4xl font-bold mb-6">
-            SIPS PROGRAMMES ARE DESIGNED FOR<br />NEXT-GENERATION LEADERS
+            WE ARE DESIGNED TO EMPOWER THE<br />NEXT GENERATION OF LEADERS
           </h1>
           <p className="text-xl md:text-2xl mb-8 text-gray-200">
             Learn Today. Lead Tomorrow
