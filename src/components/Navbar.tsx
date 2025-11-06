@@ -31,17 +31,17 @@ export function Navbar() {
               src="/sips.png" 
               alt="SIPS Logo" 
               className={`object-contain transition-all duration-300 ${
-                isScrolled ? 'h-16 w-auto' : 'h-20 w-auto'
+                isScrolled ? 'h-16 w-auto' : 'h-28 w-auto'
               }`} 
             />
             <div className="flex flex-col">
               <span className={`font-bold font-baskerville transition-all duration-300 ${
-                isScrolled ? 'text-2xl' : 'text-3xl'
+                isScrolled ? 'text-2xl' : 'text-5xl'
               }`}>
                 SIPS
               </span>
               <span className={`text-emerald-100 transition-all duration-300 ${
-                isScrolled ? 'text-sm' : 'text-base'
+                isScrolled ? 'text-sm' : 'text-xl'
               }`}>
                 Steller Institute of Professional Studies
               </span>
