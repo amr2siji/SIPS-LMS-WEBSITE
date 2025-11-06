@@ -32,7 +32,7 @@ export function Footer() {
               </li>
               <li>
                 <Link to="/about" className="text-emerald-100 hover:text-white transition-colors">
-                  About Us
+                  Meet our Team
                 </Link>
               </li>
               <li>
@@ -40,12 +40,6 @@ export function Footer() {
                   Apply Now
                 </Link>
               </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-lg font-semibold mb-4 text-amber-400">How to Progre</h4>
-            <ul className="space-y-2">
               <li>
                 <Link to="/student-life" className="text-emerald-100 hover:text-white transition-colors">
                   Student Life
@@ -59,6 +53,27 @@ export function Footer() {
               <li>
                 <Link to="/login" className="text-emerald-100 hover:text-white transition-colors">
                   LMS Portal
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-lg font-semibold mb-4 text-amber-400">Get Started</h4>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/programmes" className="text-emerald-100 hover:text-white transition-colors">
+                  View Programmes
+                </Link>
+              </li>
+              <li>
+                <Link to="/apply" className="text-emerald-100 hover:text-white transition-colors">
+                  How to Apply
+                </Link>
+              </li>
+              <li>
+                <Link to="/register" className="text-emerald-100 hover:text-white transition-colors">
+                  Registration Process
                 </Link>
               </li>
             </ul>

@@ -7,7 +7,7 @@ export function About() {
       name: "Charunadi Ratnayake",
       title: "Director / Lecturer",
       qualifications: "PhD (Reading, UOC) | MSc (USJP) | BBM (UWU) | CIMA (Reading) | PGD (OTHM L7 - SML)",
-      bio: "An accomplished academic and administrator with over 6 years of experience in the higher education sector, having served at Uva Wellassa University, Metropolitan College, Lyceum Campus, and Aquinas College of Higher Studies (as Head of Faculty). Currently contributes to academia as a visiting lecturer across multiple universities and higher education institutions.",
+      bio: "Charunadi Ratnayake is an academic and management professional with expertise in business management, entrepreneurship, and leadership. She has extensive experience in higher education, having served in academic and administrative roles that contribute to institutional development and academic excellence.\n\nHer research focuses on corporate entrepreneurship, sustainable leadership, and work–family initiatives, with several publications and conference presentations in related areas. Currently pursuing doctoral studies, she is dedicated to advancing knowledge that bridges theory and practice in organizational and entrepreneurial contexts.\n\nCharunadi is committed to fostering innovation, leadership, and sustainable growth through her teaching, research, and professional engagement within the academic community.",
       imageBase: "/team/charunadi"
     },
     {
@@ -37,6 +37,13 @@ export function About() {
       qualifications: "MBA, MBCS Information Technology",
       bio: "Possesses extensive experience in academic administration since 2019, demonstrating consistent commitment to academic quality, institutional excellence, and continuous professional growth within the higher education sector.",
       imageBase: "/team/tharushi"
+    },
+    {
+      name: "A. A. Idroos",
+      title: "Lecturer / Consultant",
+      qualifications: "MBA in Tourism (Reading) | Bachelor's in Hospitality, Tourism and Events Management",
+      bio: "A.A. Idroos is an experienced academic and consultant in Tourism, Events, Hospitality, and Business Management with over eight years of teaching and industry experience. He has served as a visiting lecturer and programme coordinator across leading higher education institutions, specialising in tourism planning, event management, and strategic hospitality operations.\n\nHe holds a Bachelor's degree in Hospitality, Tourism and Events Management and is completing a Master of Business Administration in Tourism. His professional background includes consultancy in tourism development and sustainable destination planning.\n\nA committed educator and researcher, Idroos has published on topics such as eco-tourism, service quality, and post-pandemic tourism recovery, contributing to the advancement of sustainable practices in the tourism and hospitality industry.",
+      imageBase: "/team/ali"
     }
   ];
 

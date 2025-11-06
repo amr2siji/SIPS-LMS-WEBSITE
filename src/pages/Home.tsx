@@ -13,8 +13,8 @@ export function Home() {
         }}
       >
         <div className="text-center max-w-4xl px-4">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            <span className="font-baskerville">SIPS</span> PROGRAMMES ARE DESIGNED FOR<br />NEXT-GENERATION LEADERS
+          <h1 className="text-3xl md:text-4xl font-bold mb-6">
+            SIPS PROGRAMMES ARE DESIGNED FOR<br />NEXT-GENERATION LEADERS
           </h1>
           <p className="text-xl md:text-2xl mb-8 text-gray-200">
             Learn Today. Lead Tomorrow
@@ -131,29 +131,6 @@ export function Home() {
                 Strong partnerships with leading corporations and institutions worldwide, providing students with excellent opportunities.
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16 bg-emerald-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to Start Your Journey?</h2>
-          <p className="text-xl mb-8 text-emerald-200">
-            Be the first to unlock the power of Next-Gen Education with <span className="font-baskerville">SIPS</span>
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/register"
-              className="inline-block bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-lg text-lg font-semibold transition-all transform hover:scale-105"
-            >
-              Register Online
-            </Link>
-            <Link
-              to="/programmes"
-              className="inline-block bg-white hover:bg-gray-100 text-emerald-900 px-8 py-4 rounded-lg text-lg font-semibold transition-all transform hover:scale-105"
-            >
-              View Programmes
-            </Link>
           </div>
         </div>
       </section>

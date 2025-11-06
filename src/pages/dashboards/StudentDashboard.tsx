@@ -115,7 +115,7 @@ export function StudentDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-4">
-              <img src="/sips.png" alt="SIPS Logo" className="h-14 w-12 object-contain" />
+              <img src="/sips.png" alt="SIPS Logo" className="h-16 w-auto object-contain" />
               <div>
                 <h1 className="text-2xl font-bold text-white">Student Portal</h1>
                 <p className="text-sm text-emerald-100">{profile?.full_name}</p>

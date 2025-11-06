@@ -1,22 +1,50 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 text-white shadow-lg sticky top-0 z-50">
+    <nav className={`bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 text-white shadow-lg sticky top-0 z-50 transition-all duration-300 ${
+      isScrolled ? 'py-0' : 'py-2'
+    }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
-          <Link to="/" className="flex items-center space-x-3">
-            <img src="/sips.png" alt="SIPS Logo" className="h-14 w-12 object-contain" />
+        <div className={`flex justify-between items-center transition-all duration-300 ${
+          isScrolled ? 'h-20' : 'h-28'
+        }`}>
+          <Link to="/" className="flex items-center space-x-5">
+            <img 
+              src="/sips.png" 
+              alt="SIPS Logo" 
+              className={`object-contain transition-all duration-300 ${
+                isScrolled ? 'h-16 w-auto' : 'h-20 w-auto'
+              }`} 
+            />
             <div className="flex flex-col">
-              <span className="text-xl font-bold font-baskerville">SIPS</span>
-              <span className="text-xs text-emerald-100">Steller Institute of Professional Studies</span>
+              <span className={`font-bold font-baskerville transition-all duration-300 ${
+                isScrolled ? 'text-2xl' : 'text-3xl'
+              }`}>
+                SIPS
+              </span>
+              <span className={`text-emerald-100 transition-all duration-300 ${
+                isScrolled ? 'text-sm' : 'text-base'
+              }`}>
+                Steller Institute of Professional Studies
+              </span>
             </div>
           </Link>
 
