@@ -5,14 +5,14 @@ export function Home() {
   return (
     <div className="min-h-screen">
       <section
-        className="relative h-[600px] flex items-center justify-center text-white animate-fade-in"
+        className="relative pb-64 pt-32 flex flex-col items-center justify-center text-white animate-fade-in"
         style={{
           backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(https://images.pexels.com/photos/1595391/pexels-photo-1595391.jpeg?auto=compress&cs=tinysrgb&w=1920)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
-        <div className="text-center max-w-4xl px-4 animate-slide-up">
+        <div className="text-center max-w-4xl px-4 animate-slide-up mb-16">
           <h1 className="text-3xl md:text-4xl font-bold mb-6 animate-fade-in-delay-1">
             WE ARE DESIGNED TO EMPOWER THE<br />NEXT GENERATION OF LEADERS
           </h1>
@@ -26,16 +26,50 @@ export function Home() {
             Explore Programmes
           </Link>
         </div>
+
+        {/* Feature Cards on Hero Image */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full absolute bottom-[-120px] left-0 right-0">
+          <div className="grid md:grid-cols-4 gap-6 text-center">
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-100">
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <Award className="text-white" size={32} />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-2 text-lg">Transformative Education</h4>
+              <p className="text-gray-700 text-sm font-medium">Skill-based & Student-Centric teaching style</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-200">
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <GraduationCap className="text-white" size={32} />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-2 text-lg">Flexible Learning</h4>
+              <p className="text-gray-700 text-sm font-medium">Blended model</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-300">
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <Users className="text-white" size={32} />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-2 text-lg">Industry Experts</h4>
+              <p className="text-gray-700 text-sm font-medium">Learn from the best in the industry</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200 animate-fade-in-up animation-delay-400">
+              <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <BookOpen className="text-white" size={32} />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-2 text-lg">Life Long Learning</h4>
+              <p className="text-gray-700 text-sm font-medium">Learning never stops. Education for Students, Professionals and Career transitioners</p>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-white mt-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 animate-fade-in-up">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">About <span className="font-baskerville">SIPS</span></h2>
             <div className="w-24 h-1 bg-amber-500 mx-auto"></div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
+          <div className="grid md:grid-cols-3 gap-8">
             <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-100 hover:scale-105 transition-transform duration-300">
               <Target className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Mission</h3>
@@ -69,37 +103,6 @@ export function Home() {
                   <span>Excellence - Dedication to high standards in education, training, and personal development</span>
                 </li>
               </ul>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-4 gap-6 text-center">
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200">
-              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <Award className="text-white" size={40} />
-              </div>
-              <h4 className="font-bold text-gray-900 mb-3 text-xl">Transformative Education</h4>
-              <p className="text-gray-700 text-base font-medium">Skill-based & Student-Centric teaching style</p>
-            </div>
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200">
-              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <GraduationCap className="text-white" size={40} />
-              </div>
-              <h4 className="font-bold text-gray-900 mb-3 text-xl">Flexible Learning</h4>
-              <p className="text-gray-700 text-base font-medium">Blended model</p>
-            </div>
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200">
-              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <Users className="text-white" size={40} />
-              </div>
-              <h4 className="font-bold text-gray-900 mb-3 text-xl">Industry Experts</h4>
-              <p className="text-gray-700 text-base font-medium">Learn from the best in the industry</p>
-            </div>
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-emerald-200">
-              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <BookOpen className="text-white" size={40} />
-              </div>
-              <h4 className="font-bold text-gray-900 mb-3 text-xl">Life Long Learning</h4>
-              <p className="text-gray-700 text-base font-medium">Learning never stops. Education for Students, Professionals and Career transitioners</p>
             </div>
           </div>
         </div>

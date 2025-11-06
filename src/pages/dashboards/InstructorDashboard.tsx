@@ -124,16 +124,16 @@ export function InstructorDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50">
       {/* Modern Header with Emerald Theme */}
-      <nav className="bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 shadow-lg sticky top-0 z-50">
+            <nav className="bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-4">
               <img src="/sips.png" alt="SIPS Logo" className="h-16 w-auto object-contain" />
               <div>
-                <h1 className="text-2xl font-bold text-white">
+                <h1 className="text-xl md:text-2xl font-bold text-white italic">
                   Instructor Portal
                 </h1>
-                <p className="text-sm text-emerald-100">{profile?.full_name}</p>
+                <p className="text-sm md:text-base text-emerald-100">{profile?.full_name}</p>
               </div>
             </div>
             <button

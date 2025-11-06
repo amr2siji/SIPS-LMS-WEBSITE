@@ -163,10 +163,10 @@ export function AdminDashboard() {
             <div className="flex items-center gap-4">
               <img src="/sips.png" alt="SIPS Logo" className="h-16 w-auto object-contain" />
               <div>
-                <h1 className="text-2xl font-bold text-white">
+                <h1 className="text-xl md:text-2xl font-bold text-white italic">
                   Admin Portal
                 </h1>
-                <p className="text-sm text-emerald-100">{profile?.full_name}</p>
+                <p className="text-sm md:text-base text-emerald-100">{profile?.full_name}</p>
               </div>
             </div>
             <button
