@@ -73,7 +73,7 @@ export function Home() {
             <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-100 hover:scale-105 transition-transform duration-300">
               <Target className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Mission</h3>
-              <p className="text-gray-700 leading-relaxed">
+              <p className="text-gray-700 leading-relaxed text-justify">
                 To empower students with transformative education that integrates innovation, sustainability, and skill-based learning, fostering intellectual growth and global readiness. We are committed to delivering quality learning experiences, nurturing future leaders, and contributing to the sustainable development of Sri Lanka and beyond.
               </p>
             </div>
@@ -81,7 +81,7 @@ export function Home() {
             <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-200 hover:scale-105 transition-transform duration-300">
               <Lightbulb className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Vision</h3>
-              <p className="text-gray-700 leading-relaxed">
+              <p className="text-gray-700 leading-relaxed text-justify">
                 To be the most trusted center of excellence for Next-Generation Education in Sri Lanka.
               </p>
             </div>
@@ -92,15 +92,15 @@ export function Home() {
               <ul className="text-gray-700 space-y-2">
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span>Empowerment - Commitment to giving students the tools, knowledge, and confidence to take charge of their own learning and career paths</span>
+                  <span className="text-justify">Empowerment - Commitment to giving students the tools, knowledge, and confidence to take charge of their own learning and career paths</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span>Entreprenueral  - Fostering an entrepreneurial mindset among students, encouraging innovation, creativity, & problem-solving</span>
+                  <span className="text-justify">Entreprenueral  - Fostering an entrepreneurial mindset among students, encouraging innovation, creativity, & problem-solving</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span>Excellence - Dedication to high standards in education, training, and personal development</span>
+                  <span className="text-justify">Excellence - Dedication to high standards in education, training, and personal development</span>
                 </li>
               </ul>
             </div>
@@ -122,7 +122,7 @@ export function Home() {
             <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in-up animation-delay-100 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
               <Award className="text-emerald-700 mb-4" size={40} />
               <h3 className="text-xl font-bold text-gray-900 mb-3">Accreditations</h3>
-              <p className="text-gray-700">
+              <p className="text-gray-700 text-justify">
                 Internationally recognized programs accredited by leading educational bodies, ensuring the highest standards of education.
               </p>
             </div>
@@ -130,7 +130,7 @@ export function Home() {
             <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in-up animation-delay-200 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
               <Users className="text-emerald-700 mb-4" size={40} />
               <h3 className="text-xl font-bold text-gray-900 mb-3">Expert Faculty</h3>
-              <p className="text-gray-700">
+              <p className="text-gray-700 text-justify">
                 Learn from industry professionals and experienced academics who bring real-world insights to the classroom.
               </p>
             </div>
@@ -138,7 +138,7 @@ export function Home() {
             <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in-up animation-delay-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
               <BookOpen className="text-emerald-700 mb-4" size={40} />
               <h3 className="text-xl font-bold text-gray-900 mb-3">Our Partners</h3>
-              <p className="text-gray-700">
+              <p className="text-gray-700 text-justify">
                 Strong partnerships with leading corporations and institutions worldwide, providing students with excellent opportunities.
               </p>
             </div>

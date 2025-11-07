@@ -126,7 +126,7 @@ export function About() {
                 <p className="text-xl text-emerald-700 font-semibold mb-3">{member.title}</p>
                 <p className="text-sm text-gray-600 font-medium mb-4 italic">{member.qualifications}</p>
                 <div className="h-1 w-20 bg-gradient-to-r from-emerald-500 to-amber-500 mb-6"></div>
-                <p className="text-gray-700 leading-relaxed">{member.bio}</p>
+                <p className="text-gray-700 leading-relaxed text-justify">{member.bio}</p>
               </div>
             </div>
           ))}
