@@ -17,13 +17,13 @@ export function About() {
       bio: "A dedicated academic professional with over 5 years of experience in higher education and a solid industrial background in Mechatronics, Robotics, and applied engineering technologies.",
       imageBase: "/team/duranga"
     },
-    {
-      name: "Pabasara Amarawardena",
-      title: "Director",
-      qualifications: "MBA, BSc (Hons) in Chemistry",
-      bio: "A passionate and dedicated professional with over 10 years of experience in academic administration, contributing at both strategic and operational levels within the higher education sector. Demonstrated success in leading and supporting reputed higher education institutions, driving institutional excellence through strategic leadership, process improvement, and operational efficiency.",
-      imageBase: "/team/pabasara"
-    },
+    // {
+    //   name: "Pabasara Amarawardena",
+    //   title: "Director",
+    //   qualifications: "MBA, BSc (Hons) in Chemistry",
+    //   bio: "A passionate and dedicated professional with over 10 years of experience in academic administration, contributing at both strategic and operational levels within the higher education sector. Demonstrated success in leading and supporting reputed higher education institutions, driving institutional excellence through strategic leadership, process improvement, and operational efficiency.",
+    //   imageBase: "/team/pabasara"
+    // },
     {
       name: "Ruwin Ratnayake",
       title: "Lecturer / Consultant",
@@ -44,7 +44,16 @@ export function About() {
       qualifications: "MBA in Tourism (Reading) | Bachelor's in Hospitality, Tourism and Events Management",
       bio: "A.A. Idroos is an experienced academic and consultant in Tourism, Events, Hospitality, and Business Management with over eight years of teaching and industry experience. He has served as a visiting lecturer and programme coordinator across leading higher education institutions, specialising in tourism planning, event management, and strategic hospitality operations.\n\nHe holds a Bachelor's degree in Hospitality, Tourism and Events Management and is completing a Master of Business Administration in Tourism. His professional background includes consultancy in tourism development and sustainable destination planning.\n\nA committed educator and researcher, Idroos has published on topics such as eco-tourism, service quality, and post-pandemic tourism recovery, contributing to the advancement of sustainable practices in the tourism and hospitality industry.",
       imageBase: "/team/ali"
-    }
+    },
+    {
+      name: "Pethmi Omalka De Silva",
+      title: "Lecturer in Accounting and Finance",
+      qualifications: "Reading PhD (PIM) | MSc. (UoL-UK) | MBA (Napier-UK) | BSc. in Accounting (1st Class)-USJP | ACA (CASL) | ACCA (UK) | ACMA (SL) | MAAT (AATSL) | PG dip in Banking (IBSL) | CBF/DBF (IBSL) | CTHE-UWU",
+      bio: "",
+      imageBase: "/team/pethmi"
+    },
+
+
   ];
 
   // Component to handle image with multiple format fallbacks
@@ -93,7 +102,7 @@ export function About() {
         </div>
       </section>
 
-      {/* Team Members Section */}
+      {/* Leadership Team Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-16 animate-fade-in-up">
           <div className="bg-emerald-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -105,8 +114,9 @@ export function About() {
           </p>
         </div>
 
-        <div className="space-y-12">
-          {teamMembers.map((member, index) => (
+        {/* Leadership Members (Charunadi, Duranga, Pabasara) */}
+        <div className="space-y-12 mb-24">
+          {teamMembers.slice(0, 3).map((member, index) => (
             <div
               key={index}
               className={`bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 animate-fade-in-up animation-delay-${(index + 1) * 100} hover:-translate-y-2 ${
@@ -132,9 +142,48 @@ export function About() {
           ))}
         </div>
 
+        {/* Academic Team Section */}
+        <div className="text-center mb-16 animate-fade-in-up">
+          <div className="bg-amber-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Users className="text-amber-600" size={48} />
+          </div>
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Academic Team</h2>
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+            Meet the professionals dedicated towards academic excellence and industry oriented program delivery.
+          </p>
+        </div>
+
+        {/* Academic Team Members (From Ruwin onwards) */}
+        <div className="space-y-12">
+          {teamMembers.slice(3).map((member, index) => (
+            <div
+              key={index + 3}
+              className={`bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 animate-fade-in-up animation-delay-${(index + 4) * 100} hover:-translate-y-2 ${
+                index % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'
+              } flex flex-col md:flex`}
+            >
+              {/* Image Section */}
+              <div className="md:w-1/3 bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center p-8">
+                <div className="w-64 h-64 rounded-full overflow-hidden border-8 border-white shadow-lg">
+                  <TeamMemberImage imageBase={member.imageBase} name={member.name} />
+                </div>
+              </div>
+
+              {/* Content Section */}
+              <div className="md:w-2/3 p-8 md:p-10">
+                <h3 className="text-3xl font-bold text-gray-900 mb-2">{member.name}</h3>
+                <p className="text-xl text-amber-600 font-semibold mb-3">{member.title}</p>
+                <p className="text-sm text-gray-600 font-medium mb-4 italic">{member.qualifications}</p>
+                <div className="h-1 w-20 bg-gradient-to-r from-amber-500 to-emerald-500 mb-6"></div>
+                <p className="text-gray-700 leading-relaxed text-justify">{member.bio}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* Call to Action */}
         <div className="mt-16 bg-gradient-to-r from-emerald-700 to-emerald-900 rounded-2xl p-12 text-center text-white animate-fade-in-up hover:scale-105 transition-transform duration-300">
-          <h2 className="text-3xl font-bold mb-4">Join Our Academic Community</h2>
+          <h2 className="text-3xl font-bold mb-4">Be a part of SIPS Community</h2>
           <p className="text-lg text-emerald-100 mb-8 max-w-2xl mx-auto">
             Experience world-class education guided by industry experts and dedicated professionals committed to your success.
           </p>

@@ -71,7 +71,7 @@ export function Programmes() {
         <div className="text-center max-w-4xl px-4">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">Building future-ready professionals through transformative education</h1>
           <p className="text-xl text-gray-200">
-            Programs adhering to ancestry credential teaching
+            Programs nurturing critical thinkers and change-makers for tomorrow's world
           </p>
         </div>
       </section>

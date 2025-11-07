@@ -69,38 +69,42 @@ export function Home() {
             <div className="w-24 h-1 bg-amber-500 mx-auto"></div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-100 hover:scale-105 transition-transform duration-300">
-              <Target className="text-emerald-700 mb-4" size={48} />
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Mission</h3>
-              <p className="text-gray-700 leading-relaxed text-justify">
-                To empower students with transformative education that integrates innovation, sustainability, and skill-based learning, fostering intellectual growth and global readiness. We are committed to delivering quality learning experiences, nurturing future leaders, and contributing to the sustainable development of Sri Lanka and beyond.
-              </p>
+          <div className="space-y-8">
+            {/* First Row: Vision and Mission */}
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-100 hover:scale-105 transition-transform duration-300">
+                <Lightbulb className="text-emerald-700 mb-4" size={48} />
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Vision</h3>
+                <p className="text-gray-700 leading-relaxed text-justify">
+                  To be the most trusted center of excellence for Next-Generation Education in Sri Lanka.
+                </p>
+              </div>
+
+              <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-200 hover:scale-105 transition-transform duration-300">
+                <Target className="text-emerald-700 mb-4" size={48} />
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Mission</h3>
+                <p className="text-gray-700 leading-relaxed text-justify">
+                  To empower students with transformative education that integrates innovation, sustainability, and skill-based learning, fostering intellectual growth and global readiness. We are committed to delivering quality learning experiences, nurturing future leaders, and contributing to the sustainable development of Sri Lanka and beyond.
+                </p>
+              </div>
             </div>
 
-            <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-200 hover:scale-105 transition-transform duration-300">
-              <Lightbulb className="text-emerald-700 mb-4" size={48} />
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Vision</h3>
-              <p className="text-gray-700 leading-relaxed text-justify">
-                To be the most trusted center of excellence for Next-Generation Education in Sri Lanka.
-              </p>
-            </div>
-
+            {/* Second Row: Core Values */}
             <div className="bg-emerald-50 p-8 rounded-lg animate-fade-in-up animation-delay-300 hover:scale-105 transition-transform duration-300">
               <Heart className="text-emerald-700 mb-4" size={48} />
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Our Core Values</h3>
               <ul className="text-gray-700 space-y-2">
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span className="text-justify">Empowerment - Commitment to giving students the tools, knowledge, and confidence to take charge of their own learning and career paths</span>
+                  <span className="text-justify"><strong>Empowerment -</strong> Commitment to giving students the tools, knowledge, and confidence to take charge of their own learning and career paths</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span className="text-justify">Entreprenueral  - Fostering an entrepreneurial mindset among students, encouraging innovation, creativity, & problem-solving</span>
+                  <span className="text-justify"><strong>Entrepreneurial -</strong> Fostering an entrepreneurial mindset among students, encouraging innovation, creativity, & problem-solving</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-amber-500 mr-2">•</span>
-                  <span className="text-justify">Excellence - Dedication to high standards in education, training, and personal development</span>
+                  <span className="text-justify"><strong>Excellence -</strong> Dedication to high standards in education, training, and personal development</span>
                 </li>
               </ul>
             </div>
