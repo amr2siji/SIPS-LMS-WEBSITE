@@ -8,7 +8,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="flex flex-col items-center text-center">
             <img src="/sips.png" alt="SIPS Logo" className="h-20 w-[70px] object-contain mb-3" />
-            <p className="text-base font-semibold text-white mb-2 font-baskerville">
+            <p className="text-base  text-white mb-2 font-baskerville">
               Steller Institute of Professional Studies
             </p>
             <p className="text-sm text-gray-300">
