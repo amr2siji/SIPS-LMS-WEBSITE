@@ -116,7 +116,7 @@ export function About() {
 
         {/* Leadership Members (Charunadi, Duranga, Pabasara) */}
         <div className="space-y-12 mb-24">
-          {teamMembers.slice(0, 3).map((member, index) => (
+          {teamMembers.slice(0, 2).map((member, index) => (
             <div
               key={index}
               className={`bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 animate-fade-in-up animation-delay-${(index + 1) * 100} hover:-translate-y-2 ${
@@ -155,7 +155,7 @@ export function About() {
 
         {/* Academic Team Members (From Ruwin onwards) */}
         <div className="space-y-12">
-          {teamMembers.slice(3).map((member, index) => (
+          {teamMembers.slice(2).map((member, index) => (
             <div
               key={index + 3}
               className={`bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 animate-fade-in-up animation-delay-${(index + 4) * 100} hover:-translate-y-2 ${
