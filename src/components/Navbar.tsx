@@ -83,7 +83,7 @@ export function Navbar() {
                 isActive('/blog') ? 'text-amber-400 font-semibold' : ''
               }`}
             >
-              Blog
+              News & Events
             </Link>
             <Link
               to="/about"

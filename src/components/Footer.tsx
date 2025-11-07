@@ -33,7 +33,7 @@ export function Footer() {
                 </div>
                 <div>
                   <Link to="/blog" className="text-emerald-100 hover:text-white transition-colors">
-                    Blog
+                    News & Events
                   </Link>
                 </div>
                 <div>
