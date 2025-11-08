@@ -106,7 +106,7 @@ export function Blog() {
             <Calendar className="mx-auto mb-4 animate-pulse" size={56} />
           </div>
           <h1 className="text-6xl md:text-7xl font-bold mb-6 tracking-tight">
-            NEWS & <span className="font-baskerville text-amber-400">EVENTS</span>
+            NEWS & <span className="text-amber-400">EVENTS</span>
           </h1>
           <p className="text-2xl text-emerald-50 mb-8 font-light">
             Stay Updated with the Latest Happenings at SIPS

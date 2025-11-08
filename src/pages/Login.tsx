@@ -57,7 +57,7 @@ export function Login() {
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="grid lg:grid-cols-2 gap-8">
           <div className="bg-emerald-900 text-white p-8 rounded-lg">
-            <h2 className="text-3xl font-bold mb-6">STUDENT LOGIN</h2>
+            <h2 className="text-3xl font-bold mb-6">LMS LOGIN</h2>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>

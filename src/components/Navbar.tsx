@@ -135,7 +135,7 @@ export function Navbar() {
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
-              Blog
+              News & Events
             </Link>
             <Link
               to="/about"

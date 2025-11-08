@@ -108,7 +108,7 @@ export function About() {
           <div className="bg-emerald-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
             <Users className="text-emerald-700" size={48} />
           </div>
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Leadership Team</h2>
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">Board of Directors</h2>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             Meet the exceptional individuals who drive our institution's vision and commitment to educational excellence.
           </p>
