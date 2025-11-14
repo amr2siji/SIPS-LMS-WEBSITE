@@ -1,43 +1,85 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Clock, Award, Search } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import { BookOpen, Clock, Award, Search, Users } from 'lucide-react';
 
 interface Program {
-  id: string;
+  id: number;
   name: string;
-  description: string;
+  modules: string[];
   duration: string;
+  eligibility: string;
   level: string;
-  curriculum: string;
 }
 
 export function Programmes() {
-  const [programs, setPrograms] = useState<Program[]>([]);
-  const [filteredPrograms, setFilteredPrograms] = useState<Program[]>([]);
+  const navigate = useNavigate();
+  
+  const programs: Program[] = [
+    {
+      id: 1,
+      name: "Certificate in Robotics and Arduino Programming",
+      modules: [
+        "Foundations of Robotics and Electronics",
+        "Programming and System Development",
+        "Sensor and Control Integration",
+        "Communication and Simulation Techniques",
+        "Advanced Robotics and Project Application"
+      ],
+      duration: "3 Months",
+      eligibility: "Students over 12 years old",
+      level: "Certificate"
+    },
+    {
+      id: 2,
+      name: "Professional Certificate in Research Methodology",
+      modules: [
+        "Introduction to Research and Research Ethics",
+        "Developing a Research Problem and Literature Review",
+        "Research Design and Sampling Techniques",
+        "Data Collection Methods and Tools",
+        "Data Analysis and Interpretation",
+        "Research Proposal and Report Writing"
+      ],
+      duration: "3 Months",
+      eligibility: "Anyone who passed O/L examination/ foundation Programme",
+      level: "Professional Certificate"
+    },
+    {
+      id: 3,
+      name: "Foundation in Office IT Skills",
+      modules: [
+        "Introduction to Computers & Digital Basics",
+        "Microsoft Word – Document Creation",
+        "Microsoft Excel – Data Handling for Office Use",
+        "Microsoft PowerPoint – Presentations Made Simple",
+        "Email & Internet Skills",
+        "Final Practical Project & Review"
+      ],
+      duration: "3 Months",
+      eligibility: "Any student who sat for O/L's or equivalent examination",
+      level: "Foundation"
+    },
+    {
+      id: 4,
+      name: "Certificate in Hospitality, Tourism and Events Management",
+      modules: [
+        "Introduction to Hospitality Management",
+        "Introduction to Tourism Management",
+        "Introduction to Events Management"
+      ],
+      duration: "3 Months",
+      eligibility: "Any student who sat for O/L's or equivalent examination",
+      level: "Certificate"
+    }
+  ];
+
+  const [filteredPrograms, setFilteredPrograms] = useState<Program[]>(programs);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('All');
 
   useEffect(() => {
-    loadPrograms();
-  }, []);
-
-  useEffect(() => {
     filterPrograms();
-  }, [searchTerm, selectedLevel, programs]);
-
-  const loadPrograms = async () => {
-    const { data, error } = await supabase
-      .from('programs')
-      .select('*')
-      .eq('is_active', true)
-      .order('name');
-
-    if (error) {
-      console.error('Error loading programs:', error);
-    } else {
-      setPrograms(data || []);
-    }
-  };
+  }, [searchTerm, selectedLevel]);
 
   const filterPrograms = () => {
     let filtered = programs;
@@ -45,7 +87,7 @@ export function Programmes() {
     if (searchTerm) {
       filtered = filtered.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.description?.toLowerCase().includes(searchTerm.toLowerCase())
+        p.eligibility.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -56,7 +98,7 @@ export function Programmes() {
     setFilteredPrograms(filtered);
   };
 
-  const levels = ['All', 'Diploma', 'Bachelor', 'Master', 'Professional Certificate'];
+  const levels = ['All', 'Certificate', 'Foundation', 'Professional Certificate'];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -116,33 +158,64 @@ export function Programmes() {
             <p className="text-xl text-gray-600">No programs found matching your criteria.</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 gap-8">
             {filteredPrograms.map((program) => (
               <div
                 key={program.id}
-                className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow overflow-hidden"
+                className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-2"
               >
-                <div className="bg-emerald-100 p-6">
-                  <BookOpen className="text-emerald-700 mb-3" size={40} />
-                  <h3 className="text-xl font-bold text-gray-900">{program.name}</h3>
+                <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 p-6 text-white">
+                  <BookOpen className="mb-3" size={40} />
+                  <h3 className="text-2xl font-bold">{program.name}</h3>
                 </div>
 
                 <div className="p-6">
-                  <p className="text-gray-700 mb-4 line-clamp-3">{program.description}</p>
+                  {/* Modules/Curriculum */}
+                  <div className="mb-6">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <BookOpen size={20} className="mr-2 text-emerald-600" />
+                      Modules Covered
+                    </h4>
+                    <ul className="space-y-2">
+                      {program.modules.map((module, index) => (
+                        <li key={index} className="flex items-start text-gray-700">
+                          <span className="text-emerald-600 mr-2 font-bold">•</span>
+                          <span className="text-sm">{module}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center text-gray-600">
-                      <Clock size={18} className="mr-2 text-emerald-700" />
-                      <span className="text-sm">{program.duration || 'Duration varies'}</span>
+                  {/* Program Details */}
+                  <div className="space-y-3 mb-6 border-t pt-4">
+                    <div className="flex items-start text-gray-700">
+                      <Clock size={18} className="mr-2 text-emerald-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <span className="font-semibold text-sm">Duration: </span>
+                        <span className="text-sm">{program.duration}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center text-gray-600">
-                      <Award size={18} className="mr-2 text-emerald-700" />
-                      <span className="text-sm">{program.level || 'Professional Program'}</span>
+                    <div className="flex items-start text-gray-700">
+                      <Users size={18} className="mr-2 text-emerald-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <span className="font-semibold text-sm">Eligibility: </span>
+                        <span className="text-sm">{program.eligibility}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start text-gray-700">
+                      <Award size={18} className="mr-2 text-emerald-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <span className="font-semibold text-sm">Level: </span>
+                        <span className="text-sm">{program.level}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <button className="w-full bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg font-semibold transition-colors">
-                    View Curriculum
+                  <button 
+                    onClick={() => navigate('/apply')}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg"
+                  >
+                    Inquire About Our Programmes
                   </button>
                 </div>
               </div>

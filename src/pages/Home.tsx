@@ -65,7 +65,7 @@ export function Home() {
       <section className="py-16 bg-white mt-0 md:mt-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 animate-fade-in-up">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">About <span className="font-baskerville">SIPS</span></h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">About SIPS </h2>
             <div className="w-24 h-1 bg-amber-500 mx-auto"></div>
           </div>
 
