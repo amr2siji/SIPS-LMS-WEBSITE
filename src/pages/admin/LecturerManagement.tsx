@@ -45,6 +45,38 @@ interface Program {
   department_id: string;
 }
 
+interface Intake {
+  id: string;
+  intake_name: string;
+  intake_year: number;
+  intake_month: number;
+  program_id: string;
+}
+
+interface Module {
+  id: string;
+  module_code: string;
+  module_name: string;
+  program_id: string;
+  department_id: string;
+  faculty_id: string;
+  intake_id?: string;
+  programs?: {
+    name: string;
+  };
+  departments?: {
+    name: string;
+  };
+  faculties?: {
+    name: string;
+  };
+  intakes?: {
+    intake_name: string;
+    intake_year: number;
+    intake_month: number;
+  };
+}
+
 export function LecturerManagement() {
   const navigate = useNavigate();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
@@ -63,10 +95,15 @@ export function LecturerManagement() {
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [intakes, setIntakes] = useState<Intake[]>([]);
+  const [allModules, setAllModules] = useState<Module[]>([]);
   
   // Filter dropdown data
   const [filterFaculties, setFilterFaculties] = useState<Faculty[]>([]);
   const [filterDepartments, setFilterDepartments] = useState<Department[]>([]);
+  
+  // Selected modules for assignment
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
   
   // Create lecturer form
   const [newLecturer, setNewLecturer] = useState({
@@ -89,11 +126,15 @@ export function LecturerManagement() {
     module_id: '',
     intake_id: ''
   });
+  
+  // Module search for assignment
+  const [moduleSearchTerm, setModuleSearchTerm] = useState('');
 
   useEffect(() => {
     loadLecturers();
     loadFaculties();
     loadFilterFaculties();
+    loadAllModules();
   }, []);
 
   useEffect(() => {
@@ -112,6 +153,14 @@ export function LecturerManagement() {
       setPrograms([]);
     }
   }, [assignment.department_id]);
+
+  useEffect(() => {
+    if (assignment.program_id) {
+      loadIntakesByProgram(assignment.program_id);
+    } else {
+      setIntakes([]);
+    }
+  }, [assignment.program_id]);
 
   // Filter useEffects
   useEffect(() => {
@@ -160,6 +209,46 @@ export function LecturerManagement() {
       setPrograms(data || []);
     } catch (error) {
       console.error('Error loading programs:', error);
+    }
+  };
+
+  const loadIntakesByProgram = async (programId: string) => {
+    try {
+      const { data } = await supabase
+        .from('intakes')
+        .select('id, intake_name, intake_year, intake_month, program_id')
+        .eq('program_id', programId)
+        .eq('is_active', true)
+        .order('intake_year', { ascending: false })
+        .order('intake_month', { ascending: false });
+      setIntakes(data || []);
+    } catch (error) {
+      console.error('Error loading intakes:', error);
+    }
+  };
+
+  const loadAllModules = async () => {
+    try {
+      const { data } = await supabase
+        .from('modules')
+        .select(`
+          id,
+          module_code,
+          module_name,
+          program_id,
+          department_id,
+          faculty_id,
+          intake_id,
+          programs (name),
+          departments (name),
+          faculties (name),
+          intakes (intake_name, intake_year, intake_month)
+        `)
+        .eq('is_active', true)
+        .order('module_code');
+      setAllModules(data || []);
+    } catch (error) {
+      console.error('Error loading modules:', error);
     }
   };
 
@@ -269,39 +358,27 @@ export function LecturerManagement() {
 
   const handleAssignModule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedLecturer || !assignment.program_id) {
-      alert('Please select a program');
+    if (!selectedLecturer || selectedModules.length === 0) {
+      alert('Please select at least one module');
       return;
     }
 
     setProcessing(true);
     try {
-      // Get all modules for the selected program
-      const { data: programModules, error: modulesError } = await supabase
-        .from('modules')
-        .select('id')
-        .eq('program_id', assignment.program_id)
-        .eq('is_active', true);
-
-      if (modulesError) throw modulesError;
-
-      if (!programModules || programModules.length === 0) {
-        alert('No active modules found for this program');
-        setProcessing(false);
-        return;
-      }
-
-      // Create assignments for all modules in the program
+      // Create assignments for all selected modules
       const supabaseAny = supabase as any;
-      const assignments = programModules.map((module: any) => ({
-        id: crypto.randomUUID(),
-        lecturer_id: selectedLecturer.id,
-        faculty_id: assignment.faculty_id,
-        department_id: assignment.department_id,
-        program_id: assignment.program_id,
-        module_id: module.id,
-        intake_id: assignment.intake_id || null
-      }));
+      const assignments = selectedModules.map((moduleId: string) => {
+        const module = allModules.find(m => m.id === moduleId);
+        return {
+          id: crypto.randomUUID(),
+          lecturer_id: selectedLecturer.id,
+          faculty_id: module?.faculty_id,
+          department_id: module?.department_id,
+          program_id: module?.program_id,
+          module_id: moduleId,
+          intake_id: assignment.intake_id || null
+        };
+      });
 
       const { error } = await supabaseAny
         .from('lecturer_assignments')
@@ -309,7 +386,7 @@ export function LecturerManagement() {
 
       if (error) throw error;
 
-      alert(`Successfully assigned ${programModules.length} module(s) to the lecturer!`);
+      alert(`Successfully assigned ${selectedModules.length} module(s) to the lecturer!`);
       setShowAssignModal(false);
       setAssignment({
         faculty_id: '',
@@ -318,6 +395,8 @@ export function LecturerManagement() {
         module_id: '',
         intake_id: ''
       });
+      setSelectedModules([]);
+      setModuleSearchTerm('');
       setSelectedLecturer(null);
       loadLecturers();
     } catch (error: any) {
@@ -342,6 +421,48 @@ export function LecturerManagement() {
       console.error('Error toggling lecturer status:', error);
       alert('Failed to update lecturer status');
     }
+  };
+
+  const handleToggleModule = (moduleId: string) => {
+    setSelectedModules(prev => 
+      prev.includes(moduleId) 
+        ? prev.filter(id => id !== moduleId)
+        : [...prev, moduleId]
+    );
+  };
+
+  const handleSelectAllModules = () => {
+    const filtered = getFilteredModules();
+    setSelectedModules(filtered.map(m => m.id));
+  };
+
+  const handleDeselectAllModules = () => {
+    setSelectedModules([]);
+  };
+
+  const getFilteredModules = () => {
+    let filtered = allModules;
+
+    if (assignment.faculty_id) {
+      filtered = filtered.filter(m => m.faculty_id === assignment.faculty_id);
+    }
+    if (assignment.department_id) {
+      filtered = filtered.filter(m => m.department_id === assignment.department_id);
+    }
+    if (assignment.program_id) {
+      filtered = filtered.filter(m => m.program_id === assignment.program_id);
+    }
+    if (assignment.intake_id) {
+      filtered = filtered.filter(m => m.intake_id === assignment.intake_id);
+    }
+    if (moduleSearchTerm) {
+      filtered = filtered.filter(m => 
+        m.module_code.toLowerCase().includes(moduleSearchTerm.toLowerCase()) ||
+        m.module_name.toLowerCase().includes(moduleSearchTerm.toLowerCase())
+      );
+    }
+
+    return filtered;
   };
 
   const filteredLecturers = lecturers.filter(lecturer => {
@@ -589,7 +710,7 @@ export function LecturerManagement() {
                       className="flex-1 lg:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <Plus size={18} />
-                      Assign Program
+                      Assign Modules
                     </button>
                     <button
                       onClick={() => handleToggleActive(lecturer)}
@@ -744,89 +865,190 @@ export function LecturerManagement() {
           </div>
         )}
 
-        {/* Assign Program Modal */}
+        {/* Assign Modules Modal */}
         {showAssignModal && selectedLecturer && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Assign Program to {selectedLecturer.first_name} {selectedLecturer.last_name}
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowAssignModal(false);
-                    setSelectedLecturer(null);
-                    setAssignment({
-                      faculty_id: '',
-                      department_id: '',
-                      program_id: '',
-                      module_id: '',
-                      intake_id: ''
-                    });
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X size={24} />
-                </button>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-lg max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white p-6 border-b z-10">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Assign Modules to {selectedLecturer.first_name} {selectedLecturer.last_name}
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setShowAssignModal(false);
+                      setSelectedLecturer(null);
+                      setSelectedModules([]);
+                      setModuleSearchTerm('');
+                      setAssignment({
+                        faculty_id: '',
+                        department_id: '',
+                        program_id: '',
+                        module_id: '',
+                        intake_id: ''
+                      });
+                    }}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
               </div>
 
-              <form onSubmit={handleAssignModule} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Faculty <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={assignment.faculty_id}
-                      onChange={(e) => setAssignment({...assignment, faculty_id: e.target.value, department_id: '', program_id: ''})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      required
-                    >
-                      <option value="">Select Faculty</option>
-                      {faculties.map(f => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </select>
+              <form onSubmit={handleAssignModule} className="p-6 space-y-6">
+                {/* Filter Section */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Filter Modules (Optional)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Faculty
+                      </label>
+                      <select
+                        value={assignment.faculty_id}
+                        onChange={(e) => setAssignment({...assignment, faculty_id: e.target.value, department_id: '', program_id: '', intake_id: ''})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="">All Faculties</option>
+                        {faculties.map(f => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Department
+                      </label>
+                      <select
+                        value={assignment.department_id}
+                        onChange={(e) => setAssignment({...assignment, department_id: e.target.value, program_id: '', intake_id: ''})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        disabled={!assignment.faculty_id}
+                      >
+                        <option value="">All Departments</option>
+                        {departments.map(d => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Program
+                      </label>
+                      <select
+                        value={assignment.program_id}
+                        onChange={(e) => setAssignment({...assignment, program_id: e.target.value, intake_id: ''})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        disabled={!assignment.department_id}
+                      >
+                        <option value="">All Programs</option>
+                        {programs.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Intake
+                      </label>
+                      <select
+                        value={assignment.intake_id}
+                        onChange={(e) => setAssignment({...assignment, intake_id: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        disabled={!assignment.program_id}
+                      >
+                        <option value="">All Intakes</option>
+                        {intakes.map(i => (
+                          <option key={i.id} value={i.id}>
+                            {i.intake_name} ({i.intake_year})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <div>
+
+                  {/* Search Bar */}
+                  <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Department <span className="text-red-500">*</span>
+                      Search Modules
                     </label>
-                    <select
-                      value={assignment.department_id}
-                      onChange={(e) => setAssignment({...assignment, department_id: e.target.value, program_id: ''})}
+                    <input
+                      type="text"
+                      placeholder="Search by module code or name..."
+                      value={moduleSearchTerm}
+                      onChange={(e) => setModuleSearchTerm(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      disabled={!assignment.faculty_id}
-                      required
-                    >
-                      <option value="">Select Department</option>
-                      {departments.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Program <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={assignment.program_id}
-                      onChange={(e) => setAssignment({...assignment, program_id: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      disabled={!assignment.department_id}
-                      required
-                    >
-                      <option value="">Select Program</option>
-                      {programs.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                </div>
+
+                {/* Module Selection */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Select Modules ({selectedModules.length} selected)
+                    </h3>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSelectAllModules}
+                        className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-gray-300">|</span>
+                      <button
+                        type="button"
+                        onClick={handleDeselectAllModules}
+                        className="text-sm text-gray-600 hover:text-gray-700 font-medium"
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border border-gray-300 rounded-lg max-h-96 overflow-y-auto">
+                    {getFilteredModules().length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        No modules found. Try adjusting your filters.
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-200">
+                        {getFilteredModules().map((module) => (
+                          <label
+                            key={module.id}
+                            className="flex items-start gap-3 p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedModules.includes(module.id)}
+                              onChange={() => handleToggleModule(module.id)}
+                              className="mt-1 h-5 w-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-gray-900">{module.module_code}</span>
+                                <span className="text-gray-700">{module.module_name}</span>
+                              </div>
+                              <div className="mt-1 text-sm text-gray-500">
+                                {module.faculties?.name} → {module.departments?.name} → {module.programs?.name}
+                                {module.intakes && (
+                                  <span className="ml-2 text-purple-600 font-medium">
+                                    • {module.intakes.intake_name} ({module.intakes.intake_year})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> Selecting a program will automatically assign the lecturer to all active modules within that program.
+                    <strong>Note:</strong> You can select multiple modules from different faculties, departments, and programs. Use the filters above to narrow down the module list.
                   </p>
                 </div>
 
@@ -836,6 +1058,8 @@ export function LecturerManagement() {
                     onClick={() => {
                       setShowAssignModal(false);
                       setSelectedLecturer(null);
+                      setSelectedModules([]);
+                      setModuleSearchTerm('');
                       setAssignment({
                         faculty_id: '',
                         department_id: '',
@@ -850,10 +1074,10 @@ export function LecturerManagement() {
                   </button>
                   <button
                     type="submit"
-                    disabled={processing}
+                    disabled={processing || selectedModules.length === 0}
                     className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-400"
                   >
-                    {processing ? 'Assigning...' : 'Assign Program'}
+                    {processing ? 'Assigning...' : `Assign ${selectedModules.length} Module(s)`}
                   </button>
                 </div>
               </form>

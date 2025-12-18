@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Book, Edit, Trash2, Power, X } from 'lucide-react';
+import { ArrowLeft, Plus, Book, Edit, Trash2, CheckCircle, XCircle, X, AlertTriangle, Calendar } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface Faculty {
@@ -62,6 +62,8 @@ export function ModuleManagement() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingModule, setEditingModule] = useState<Module | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [moduleToToggle, setModuleToToggle] = useState<{ id: string; currentStatus: boolean; name: string } | null>(null);
   
   // Filter states
   const [filterFaculty, setFilterFaculty] = useState('all');
@@ -326,19 +328,35 @@ export function ModuleManagement() {
     }
   };
 
-  const handleToggleActive = async (moduleId: string, currentStatus: boolean) => {
+  const handleToggleActive = (moduleId: string, currentStatus: boolean, moduleName: string) => {
+    setModuleToToggle({ id: moduleId, currentStatus, name: moduleName });
+    setShowConfirmModal(true);
+  };
+
+  const confirmToggleActive = async () => {
+    if (!moduleToToggle) return;
+
     try {
       const supabaseAny = supabase as any;
       const { error } = await supabaseAny
         .from('modules')
-        .update({ is_active: !currentStatus })
-        .eq('id', moduleId);
+        .update({ is_active: !moduleToToggle.currentStatus })
+        .eq('id', moduleToToggle.id);
 
       if (error) throw error;
+      
+      setShowConfirmModal(false);
+      setModuleToToggle(null);
       loadModules();
     } catch (error) {
       console.error('Error toggling module status:', error);
+      alert('Failed to update module status. Please try again.');
     }
+  };
+
+  const cancelToggleActive = () => {
+    setShowConfirmModal(false);
+    setModuleToToggle(null);
   };
 
   const resetForm = () => {
@@ -536,12 +554,17 @@ export function ModuleManagement() {
                 <div className={`h-2 ${module.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-lg font-bold text-gray-900">{module.module_code}</h3>
                       <p className="text-sm text-gray-500">{module.programs?.name}</p>
-                      <p className="text-xs text-gray-400">
-                        {module.intakes?.intake_name} - {module.intakes?.intake_year}
-                      </p>
+                      {module.intakes && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Calendar size={12} className="text-purple-600" />
+                          <p className="text-xs text-purple-600 font-medium">
+                            {module.intakes.intake_name} - {module.intakes.intake_year}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <span
                       className={`px-2 py-1 text-xs rounded-full ${
@@ -566,12 +589,15 @@ export function ModuleManagement() {
                       Edit
                     </button>
                     <button
-                      onClick={() => handleToggleActive(module.id, module.is_active)}
+                      onClick={() => handleToggleActive(module.id, module.is_active, module.module_name)}
                       className={`${
-                        module.is_active ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'
+                        module.is_active 
+                          ? 'bg-orange-100 hover:bg-orange-200 text-orange-600' 
+                          : 'bg-green-100 hover:bg-green-200 text-green-600'
                       } p-2 rounded-lg transition-colors`}
+                      title={module.is_active ? 'Deactivate Module' : 'Activate Module'}
                     >
-                      <Power size={18} />
+                      {module.is_active ? <XCircle size={18} /> : <CheckCircle size={18} />}
                     </button>
                     <button className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors">
                       <Trash2 size={18} />
@@ -854,6 +880,72 @@ export function ModuleManagement() {
                     </button>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Modal for Active/Inactive Toggle */}
+        {showConfirmModal && moduleToToggle && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-full ${
+                  moduleToToggle.currentStatus 
+                    ? 'bg-orange-100' 
+                    : 'bg-green-100'
+                }`}>
+                  {moduleToToggle.currentStatus ? (
+                    <AlertTriangle className="text-orange-600" size={24} />
+                  ) : (
+                    <CheckCircle className="text-green-600" size={24} />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    {moduleToToggle.currentStatus ? 'Deactivate Module?' : 'Activate Module?'}
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    {moduleToToggle.currentStatus ? (
+                      <>
+                        Are you sure you want to <span className="font-semibold">deactivate</span> the module{' '}
+                        <span className="font-semibold text-gray-900">"{moduleToToggle.name}"</span>?
+                        <br /><br />
+                        <span className="text-sm text-orange-600">
+                          ⚠️ This module will no longer be available for student enrollment and will be hidden from active module lists.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        Are you sure you want to <span className="font-semibold">activate</span> the module{' '}
+                        <span className="font-semibold text-gray-900">"{moduleToToggle.name}"</span>?
+                        <br /><br />
+                        <span className="text-sm text-green-600">
+                          ✓ This module will become available for student enrollment and will appear in active module lists.
+                        </span>
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={cancelToggleActive}
+                  className="flex-1 px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmToggleActive}
+                  className={`flex-1 px-6 py-2.5 text-white rounded-lg transition-colors font-medium ${
+                    moduleToToggle.currentStatus
+                      ? 'bg-orange-600 hover:bg-orange-700'
+                      : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  {moduleToToggle.currentStatus ? 'Deactivate' : 'Activate'}
+                </button>
               </div>
             </div>
           </div>

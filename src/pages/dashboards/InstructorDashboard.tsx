@@ -105,14 +105,6 @@ export function InstructorDashboard() {
       badge: stats.pendingSubmissions
     },
     {
-      title: 'Students Management',
-      description: 'View and manage student records',
-      icon: Users,
-      color: 'from-emerald-500 to-emerald-600',
-      path: '/admin/manage-students',
-      badge: null
-    },
-    {
       title: 'Lecture Material Management',
       description: 'Upload and manage course materials',
       icon: GraduationCap,
@@ -280,7 +272,7 @@ export function InstructorDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {quickActions.map((action, index) => (
               <button
                 key={index}

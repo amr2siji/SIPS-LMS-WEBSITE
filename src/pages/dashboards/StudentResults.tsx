@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Award, BookOpen, TrendingUp, Download } from 'lucide-react';
+import { ArrowLeft, Award, BookOpen, Download } from 'lucide-react';
 
 interface ModuleResult {
   module_id: string;
@@ -264,7 +264,7 @@ export function StudentResults() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Overall Statistics */}
         {results.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -274,19 +274,6 @@ export function StudentResults() {
                 </div>
                 <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 rounded-xl">
                   <BookOpen className="text-white" size={24} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 mb-1">Average Score</p>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-2">{overallStats.averagePercentage.toFixed(1)}%</h3>
-                  <p className="text-sm text-blue-600 font-medium">Overall percentage</p>
-                </div>
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-xl">
-                  <TrendingUp className="text-white" size={24} />
                 </div>
               </div>
             </div>
@@ -354,10 +341,9 @@ export function StudentResults() {
                               <p className="text-sm text-gray-600">{programResults.length} module(s)</p>
                             </div>
                             <div className="text-right">
-                              <div className="text-sm text-gray-600 mb-1">Program Average</div>
+                              <div className="text-sm text-gray-600 mb-1">Program Grade</div>
                               <div className="flex items-center gap-2">
-                                <span className="text-2xl font-bold text-gray-900">{programAvg.toFixed(1)}%</span>
-                                <span className={`px-3 py-1 rounded-lg text-sm font-bold border-2 ${getGradeColor(programGrade)}`}>
+                                <span className={`px-4 py-2 rounded-lg text-xl font-bold border-2 ${getGradeColor(programGrade)}`}>
                                   {programGrade}
                                 </span>
                               </div>
@@ -372,10 +358,7 @@ export function StudentResults() {
                                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Module Code</th>
                                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Module Name</th>
                                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Credits</th>
-                                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Marks</th>
-                                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Percentage</th>
                                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Grade</th>
-                                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">GPA</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200">
@@ -388,20 +371,10 @@ export function StudentResults() {
                                         {result.credit_score}
                                       </span>
                                     </td>
-                                    <td className="px-4 py-4 text-sm text-center text-gray-900">
-                                      <span className="font-semibold">{result.obtained_marks}</span>
-                                      <span className="text-gray-500"> / {result.total_marks}</span>
-                                    </td>
-                                    <td className="px-4 py-4 text-sm text-center">
-                                      <span className="font-bold text-gray-900">{result.percentage.toFixed(1)}%</span>
-                                    </td>
                                     <td className="px-4 py-4 text-sm text-center">
                                       <span className={`inline-flex px-3 py-1 rounded-lg text-sm font-bold border-2 ${getGradeColor(result.grade)}`}>
                                         {result.grade}
                                       </span>
-                                    </td>
-                                    <td className="px-4 py-4 text-sm text-center">
-                                      <span className="font-bold text-gray-900">{result.gpa.toFixed(2)}</span>
                                     </td>
                                   </tr>
                                 ))}
