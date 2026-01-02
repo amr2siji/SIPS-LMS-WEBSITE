@@ -1,118 +1,123 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { authService, LoginCredentials } from '../services/authService';
 
-interface Profile {
-  id: string;
-  email: string;
-  full_name: string;
+interface User {
+  nic: string;
+  fullName: string | null;
   role: string;
-  phone: string | null;
-  avatar_url: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
-  profile: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, role: string) => Promise<void>;
+  isAuthenticated: boolean;
+  signIn: (credentials: LoginCredentials) => Promise<void>;
   signOut: () => Promise<void>;
+  hasRole: (role: string) => boolean;
+  isAdmin: () => boolean;
+  isInstructor: () => boolean;
+  isStudent: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile(session.user.id);
-      } else {
+    // Check if user is already authenticated on app load
+    const initializeAuth = () => {
+      try {
+        const isValid = authService.validateAuthentication();
+        
+        if (isValid) {
+          const currentUser = authService.getCurrentUser();
+          if (currentUser.isAuthenticated && currentUser.nic && currentUser.role) {
+            setUser({
+              nic: currentUser.nic,
+              fullName: currentUser.fullName,
+              role: currentUser.role
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Authentication initialization error:', error);
+        // Clear any corrupted auth state
+        authService.clearAuth();
+      } finally {
         setLoading(false);
       }
-    });
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await loadProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
-      })();
-    });
-
-    return () => subscription.unsubscribe();
+    initializeAuth();
   }, []);
 
-  const loadProfile = async (userId: string) => {
+  const signIn = async (credentials: LoginCredentials) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) throw error;
+      setLoading(true);
+      const response = await authService.login(credentials);
       
-      console.log('✅ Profile loaded:', data);
-      console.log('📋 User Role:', (data as any)?.role);
-      console.log('👤 User ID:', userId);
+      setUser({
+        nic: response.nic,
+        fullName: response.fullName || null,
+        role: response.role
+      });
       
-      setProfile(data);
+      console.log('Login successful, user set:', {
+        nic: response.nic,
+        fullName: response.fullName,
+        role: response.role
+      });
+      
     } catch (error) {
-      console.error('❌ Error loading profile:', error);
+      console.error('Sign in error:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-  };
-
-  const signUp = async (email: string, password: string, fullName: string, role: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
-
-    if (data.user) {
-      const { error: profileError } = await (supabase as any)
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email,
-          full_name: fullName,
-          role,
-        });
-
-      if (profileError) throw profileError;
+  const signOut = async () => {
+    try {
+      setLoading(true);
+      await authService.logout();
+      setUser(null);
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Even if logout fails, clear local state
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+  const hasRole = (role: string): boolean => {
+    return user?.role === role;
+  };
+
+  const isAdmin = (): boolean => {
+    return hasRole('ADMIN'); // Backend uses 'ADMIN'
+  };
+
+  const isInstructor = (): boolean => {
+    return hasRole('INSTRUCTOR') || hasRole('LECTURER'); // Backend might use either
+  };
+
+  const isStudent = (): boolean => {
+    return hasRole('STUDENT');
   };
 
   const value = {
     user,
-    session,
-    profile,
     loading,
+    isAuthenticated: user !== null,
     signIn,
-    signUp,
     signOut,
+    hasRole,
+    isAdmin,
+    isInstructor,
+    isStudent,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

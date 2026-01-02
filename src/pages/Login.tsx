@@ -1,42 +1,75 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LogIn, User, Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 
 export function Login() {
-  const [email, setEmail] = useState('');
+  const [nic, setNic] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signIn, user, profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { signIn, user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Navigate to dashboard after successful login (user and profile are set)
-  // Only run after login attempt
-  const [loginAttempted, setLoginAttempted] = useState(false);
-  
-  // Watch for user/profile to be set after login
+  // Check for session invalidation reason
   useEffect(() => {
-    if (loginAttempted && user && profile) {
-      navigate('/dashboard');
+    const reason = searchParams.get('reason');
+    if (reason === 'session_invalid') {
+      setError('Your session was terminated because you logged in from another device. Please login again.');
+    } else if (reason === 'unauthorized') {
+      setError('Your session has expired. Please login again.');
     }
-  }, [user, profile, loginAttempted, navigate]);
+  }, [searchParams]);
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      console.log('User already authenticated, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setLoginAttempted(false);
+
     try {
-      await signIn(email, password);
-      setLoginAttempted(true);
+      await signIn({ nic: nic.trim(), password });
+      // Navigation will be handled by the useEffect above when auth state changes
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
+      console.error('Login error:', err);
+      setError(err.message || 'Invalid NIC or password. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  // If already authenticated, show redirect message
+  if (isAuthenticated && user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center bg-white p-8 rounded-lg shadow-lg max-w-md">
+          <div className="mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
+              <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Already Logged In</h2>
+          <p className="text-gray-600 mb-4">
+            You're logged in as <strong>{user.fullName || user.nic}</strong>
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            Redirecting to dashboard...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -62,19 +95,26 @@ export function Login() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-emerald-100 mb-2">
-                  Username (Student ID)
+                  NIC Number
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 text-emerald-300" size={20} />
                   <input
-                    type="email"
+                    type="text"
+                    name="nic"
+                    autoComplete="username"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={nic}
+                    onChange={(e) => setNic(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-white text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    placeholder="Enter your email"
+                    placeholder="Enter your NIC number"
+                    maxLength={12}
+                    disabled={loading}
                   />
                 </div>
+                <p className="text-xs text-emerald-200 mt-1">
+                  Enter your National Identity Card number
+                </p>
               </div>
 
               <div>
@@ -85,24 +125,36 @@ export function Login() {
                   <Lock className="absolute left-3 top-3 text-emerald-300" size={20} />
                   <input
                     type="password"
+                    name="password"
+                    autoComplete="current-password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-white text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                     placeholder="Enter your password"
+                    disabled={loading}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
-                />
-                <label htmlFor="remember" className="ml-2 text-sm text-emerald-100">
-                  Remember Me
-                </label>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="remember"
+                    className="w-4 h-4 text-amber-500 border-gray-300 rounded focus:ring-amber-500"
+                  />
+                  <label htmlFor="remember" className="ml-2 text-sm text-emerald-100">
+                    Remember Me
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password')}
+                  className="text-sm text-amber-300 hover:text-amber-200 transition-colors font-medium"
+                >
+                  Forgot Password?
+                </button>
               </div>
 
               {error && (
@@ -129,8 +181,14 @@ export function Login() {
 
             <div className="mt-6 text-center">
               <p className="text-emerald-200 text-sm mb-4">
-                First Time User? Activate Your Account
+                First Time User? Contact Admin for Account Activation
               </p>
+              <div className="text-xs text-emerald-300 bg-emerald-800 p-3 rounded">
+                <p><strong>Test Credentials:</strong></p>
+                <p>Admin: 199912345678 / Admin@123</p>
+                <p>Lecturer: 198001234567 / Lecturer@123</p>
+                <p>Student: 200001234567 / Student@123</p>
+              </div>
             </div>
           </div>
 

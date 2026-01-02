@@ -1,74 +1,81 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { Users, BookOpen, FileText, DollarSign, LogOut, GraduationCap, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+interface AdminDashboardData {
+  stats: {
+    totalStudents: number;
+    activeStudents: number;
+    dropoutStudents: number;
+    totalCourses: number;
+    totalPrograms: number;
+    pendingApplications: number;
+    pendingPayments: number;
+  };
+}
+
 export function AdminDashboard() {
-  const { profile, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    totalStudents: 0,
-    activeStudents: 0,
-    dropoutStudents: 0,
-    totalCourses: 0,
-    totalPrograms: 0,
-    pendingApplications: 0,
-    pendingPayments: 0,
-  });
+  const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (profile) {
+    if (user) {
       loadAdminStats();
     }
-  }, [profile]);
+  }, [user]);
 
   const loadAdminStats = async () => {
     try {
-      const { data: students } = await supabase
-        .from('students')
-        .select('status');
-
-      const { data: courses } = await supabase
-        .from('courses')
-        .select('id')
-        .eq('is_active', true);
-
-      const { data: programs } = await supabase
-        .from('programs')
-        .select('id')
-        .eq('is_active', true);
-
-      const { data: applications } = await supabase
-        .from('applications')
-        .select('id')
-        .eq('status', 'pending');
-
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('id')
-        .eq('status', 'pending');
-
-      const activeStudents = students?.filter((s: any) => s.status === 'active').length || 0;
-      const dropoutStudents = students?.filter((s: any) => s.status === 'dropout').length || 0;
-
-      setStats({
-        totalStudents: students?.length || 0,
-        activeStudents,
-        dropoutStudents,
-        totalCourses: courses?.length || 0,
-        totalPrograms: programs?.length || 0,
-        pendingApplications: applications?.length || 0,
-        pendingPayments: payments?.length || 0,
+      // TODO: Replace with real API call when backend is ready
+      // For now, use mock data to display dashboard
+      console.log('Using mock data for admin dashboard - API not implemented yet');
+      
+      setDashboardData({
+        stats: {
+          totalStudents: 245,
+          activeStudents: 220,
+          dropoutStudents: 25,
+          totalCourses: 18,
+          totalPrograms: 6,
+          pendingApplications: 12,
+          pendingPayments: 8
+        }
       });
-    } catch (error) {
+      
+      setLoading(false);
+    } catch (error: any) {
       console.error('Error loading admin stats:', error);
+      setLoading(false);
     }
   };
 
   const handleLogout = async () => {
     await signOut();
     navigate('/login');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-700 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = dashboardData?.stats || {
+    totalStudents: 0,
+    activeStudents: 0,
+    dropoutStudents: 0,
+    totalCourses: 0,
+    totalPrograms: 0,
+    pendingApplications: 0,
+    pendingPayments: 0
   };
 
   const quickActions = [
@@ -166,7 +173,7 @@ export function AdminDashboard() {
                 <h1 className="text-xl md:text-2xl font-bold text-white italic">
                   Admin Portal
                 </h1>
-                <p className="text-sm md:text-base text-emerald-100">{profile?.full_name}</p>
+                <p className="text-sm md:text-base text-emerald-100">{user?.fullName || 'Administrator'}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

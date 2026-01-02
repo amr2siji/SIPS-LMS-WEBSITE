@@ -3,6 +3,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { FloatingInquireButton } from './components/FloatingInquireButton';
+import { TestEncryption } from './components/TestEncryption';
 import { Home } from './pages/Home';
 import { Programmes } from './pages/Programmes';
 import { Blog } from './pages/Blog';
@@ -10,6 +11,7 @@ import { About } from './pages/About';
 import { Apply } from './pages/Apply';
 import Register from './pages/Register';
 import { Login } from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
 import { Dashboard } from './pages/Dashboard';
 import { SetupTestUsers } from './pages/SetupTestUsers';
 import { ManageStudents } from './pages/admin/ManageStudents';
@@ -39,6 +41,8 @@ function App() {
           <Route path="/apply" element={<PublicLayout><Apply /></PublicLayout>} />
           <Route path="/register" element={<PublicLayout><Register /></PublicLayout>} />
           <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
+          <Route path="/forgot-password" element={<PublicLayout><ForgotPassword /></PublicLayout>} />
+          <Route path="/test" element={<PublicLayout><TestEncryption /></PublicLayout>} />
           <Route path="/setup-test-users" element={<SetupTestUsers />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/student/modules" element={<StudentModules />} />

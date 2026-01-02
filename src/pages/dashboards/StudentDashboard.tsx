@@ -1,96 +1,70 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import {
   BookOpen, FileText, Upload, DollarSign,
   Calendar, CheckCircle, Clock, LogOut, Bell, User, ChevronDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-interface StudentProgram {
-  id: string;
-  program_id: string;
-  program_name: string;
-  intake_id: string;
-  intake_name: string;
-  status: string;
+interface StudentDashboardData {
+  studentInfo: {
+    nic: string;
+    fullName: string;
+    email: string;
+    enrolledPrograms: string[];
+  };
+  stats: {
+    totalModules: number;
+    pendingAssignments: number;
+    completedAssignments: number;
+    totalMaterials: number;
+  };
 }
 
 export function StudentDashboard() {
-  const { profile, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [studentPrograms, setStudentPrograms] = useState<StudentProgram[]>([]);
-  const [stats, setStats] = useState({
-    totalModules: 0,
-    pendingAssignments: 0,
-    completedAssignments: 0,
-    totalMaterials: 0,
-  });
+  const [dashboardData, setDashboardData] = useState<StudentDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (profile) {
-      loadStudentPrograms();
+    if (user) {
+      loadDashboardData();
     }
-  }, [profile]);
+  }, [user]);
 
-  const loadStudentPrograms = async () => {
+  const loadDashboardData = async () => {
     try {
-      if (!profile?.id) return;
+      if (!user?.nic) {
+        console.warn('User information not found');
+        setLoading(false);
+        return;
+      }
 
-      const { data: programs, error } = await supabase
-        .from('student_programs')
-        .select(`
-          id,
-          program_id,
-          intake_id,
-          status,
-          programs:program_id (
-            id,
-            name,
-            program_type
-          ),
-          intakes:intake_id (
-            id,
-            intake_name
-          )
-        `)
-        .eq('student_id', profile.id)
-        .eq('is_active', true);
-
-      if (error) throw error;
-
-      const formattedPrograms: StudentProgram[] = (programs || []).map((p: any) => ({
-        id: p.id,
-        program_id: p.programs?.id || '',
-        program_name: p.programs?.name || 'Unknown Program',
-        intake_id: p.intakes?.id || '',
-        intake_name: p.intakes?.intake_name || 'Unknown Intake',
-        status: p.status,
-      }));
-
-      setStudentPrograms(formattedPrograms);
-      updateStats();
-    } catch (error) {
-      console.error('Error loading student programs:', error);
-    } finally {
+      // TODO: Replace with real API call when backend is ready
+      // For now, use mock data to display dashboard
+      console.log('Using mock data for student dashboard - API not implemented yet');
+      
+      setDashboardData({
+        studentInfo: {
+          nic: user.nic,
+          fullName: user.fullName || 'Student',
+          email: '',
+          enrolledPrograms: ['Information Technology', 'Business Management']
+        },
+        stats: {
+          totalModules: 8,
+          pendingAssignments: 3,
+          completedAssignments: 12,
+          totalMaterials: 45
+        }
+      });
+      
       setLoading(false);
-    }
-  };
-
-  const updateStats = async () => {
-    try {
-      const programIds = studentPrograms.map(p => p.program_id);
-      const { data: allModules } = await supabase
-        .from('modules')
-        .select('id')
-        .in('program_id', programIds)
-        .eq('is_active', true);
-
-      setStats(prev => ({ ...prev, totalModules: allModules?.length || 0 }));
-    } catch (error) {
-      console.error('Error updating stats:', error);
+    } catch (error: any) {
+      console.error('Error loading dashboard:', error);
+      setLoading(false);
     }
   };
 
@@ -110,6 +84,13 @@ export function StudentDashboard() {
     );
   }
 
+  const stats = dashboardData?.stats || {
+    totalModules: 0,
+    pendingAssignments: 0,
+    completedAssignments: 0,
+    totalMaterials: 0
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50">
       <nav className="bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 shadow-lg sticky top-0 z-50">
@@ -119,7 +100,7 @@ export function StudentDashboard() {
               <img src="/sips.png" alt="SIPS Logo" className="h-16 w-auto object-contain" />
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-white italic">Student Portal</h1>
-                <p className="text-sm md:text-base text-emerald-100">{profile?.full_name}</p>
+                <p className="text-sm md:text-base text-emerald-100">{user?.fullName || user?.nic}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -147,8 +128,8 @@ export function StudentDashboard() {
                 {isProfileMenuOpen && (
                   <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <div className="px-4 py-3 border-b border-gray-200">
-                      <p className="text-sm font-semibold text-gray-900">{profile?.full_name}</p>
-                      <p className="text-xs text-gray-600">{profile?.email}</p>
+                      <p className="text-sm font-semibold text-gray-900">{user?.fullName || 'Student'}</p>
+                      <p className="text-xs text-gray-600">{user?.nic}</p>
                       <p className="text-xs text-emerald-600 font-medium mt-1">Student</p>
                     </div>
                     <button
@@ -189,7 +170,7 @@ export function StudentDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome back, {profile?.full_name}!</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome back, {user?.fullName || 'Student'}!</h2>
           <p className="text-gray-600">Your learning dashboard - track your progress and access course materials</p>
         </div>
 
@@ -198,7 +179,7 @@ export function StudentDashboard() {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600 mb-1">Enrolled Programs</p>
-                <h3 className="text-3xl font-bold text-gray-900 mb-2">{studentPrograms.length}</h3>
+                <h3 className="text-3xl font-bold text-gray-900 mb-2">{dashboardData?.studentInfo?.enrolledPrograms?.length || 0}</h3>
                 <p className="text-sm text-emerald-600 font-medium">Active enrollment</p>
               </div>
               <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 rounded-xl">
@@ -288,15 +269,14 @@ export function StudentDashboard() {
           </div>
 
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 mt-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">My Programs & Modules</h3>
-              {studentPrograms.length === 0 ? (
+              <h3 className="text-xl font-bold text-gray-900 mb-4">My Programs</h3>
+              {!dashboardData?.studentInfo?.enrolledPrograms || dashboardData.studentInfo.enrolledPrograms.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No programs enrolled yet.</p>
               ) : (
                 <div className="space-y-3">
-                  {studentPrograms.map((program) => (
-                    <button
-                      key={program.id}
-                      onClick={() => navigate(`/student/modules?programId=${program.program_id}&programName=${encodeURIComponent(program.program_name)}&intakeId=${program.intake_id}`)}
+                  {dashboardData.studentInfo.enrolledPrograms.map((programName: string, index: number) => (
+                    <div
+                      key={index}
                       className="w-full bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:bg-emerald-50 transition-all hover:shadow-md group"
                     >
                       <div className="flex justify-between items-center">
@@ -305,20 +285,17 @@ export function StudentDashboard() {
                             <BookOpen className="text-white" size={24} />
                           </div>
                           <div className="text-left">
-                            <h4 className="font-bold text-gray-900 mb-1 group-hover:text-emerald-700 transition-colors">{program.program_name}</h4>
-                            <p className="text-sm text-gray-600">{program.intake_name}</p>
+                            <h4 className="font-bold text-gray-900 mb-1 group-hover:text-emerald-700 transition-colors">{programName}</h4>
+                            <p className="text-sm text-gray-600">Active Program</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${program.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                            {program.status}
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                            Active
                           </span>
-                          <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}

@@ -5,9 +5,9 @@ import { InstructorDashboard } from './dashboards/InstructorDashboard';
 import { AdminDashboard } from './dashboards/AdminDashboard';
 
 export function Dashboard() {
-  const { profile, loading } = useAuth();
+  const { user, loading } = useAuth();
 
-  console.log('🎯 Dashboard rendering - Loading:', loading, 'Profile:', profile);
+  console.log('🎯 Dashboard rendering - Loading:', loading, 'User:', user);
 
   if (loading) {
     return (
@@ -20,25 +20,29 @@ export function Dashboard() {
     );
   }
 
-  if (!profile) {
-    console.log('❌ No profile found, redirecting to login');
+  if (!user) {
+    console.log('❌ No user found, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
-  console.log('✅ Profile role:', profile.role);
+  console.log('✅ User role:', user.role);
 
-  switch (profile.role) {
+  // Convert role to lowercase for comparison
+  const userRole = user.role?.toLowerCase();
+
+  switch (userRole) {
     case 'student':
       console.log('➡️ Rendering StudentDashboard');
       return <StudentDashboard />;
     case 'instructor':
+    case 'lecturer':
       console.log('➡️ Rendering InstructorDashboard');
       return <InstructorDashboard />;
     case 'admin':
       console.log('➡️ Rendering AdminDashboard');
       return <AdminDashboard />;
     default:
-      console.log('❌ Unknown role:', profile.role, '- Redirecting to login');
+      console.log('❌ Unknown role:', user.role, '- Redirecting to login');
       return <Navigate to="/login" replace />;
   }
 }

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LMS Login Test - Correct Encryption</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 20px 0; padding: 10px; border: 1px solid #ddd; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>LMS Backend Login Test</h1>
+    <p>This tests the correct encryption format for your LMS backend.</p>
+    
+    <button onclick="testAdminLogin()">Test Admin Login</button>
+    <button onclick="testLecturerLogin()">Test Lecturer Login</button>
+    <button onclick="testStudentLogin()">Test Student Login</button>
+    <button onclick="showEncryptionDetails()">Show Encryption Details</button>
+    
+    <div id="result"></div>
+
+    <script>
+        class LMSEncryption {
+            constructor() {
+                this.secretKey = 'your-aes-256-secret-key-change-this';
+            }
+
+            generateKey() {
+                const keyBytes = CryptoJS.enc.Utf8.parse(this.secretKey);
+                const hash = CryptoJS.SHA256(keyBytes);
+                return CryptoJS.lib.WordArray.create(hash.words.slice(0, 8));
+            }
+
+            generateIv() {
+                const ivBytes = CryptoJS.enc.Utf8.parse(this.secretKey);
+                const hash = CryptoJS.SHA256(ivBytes);
+                return CryptoJS.lib.WordArray.create(hash.words.slice(0, 4));
+            }
+
+            encrypt(data) {
+                try {
+                    const key = this.generateKey();
+                    const iv = this.generateIv();
+                    
+                    const encrypted = CryptoJS.AES.encrypt(
+                        JSON.stringify(data),
+                        key,
+                        {
+                            iv: iv,
+                            mode: CryptoJS.mode.CBC,
+                            padding: CryptoJS.pad.Pkcs7
+                        }
+                    );
+                    
+                    const encryptedBytes = encrypted.ciphertext;
+                    
+                    // Convert IV to byte array (matches backend format)
+                    const ivArray = new Uint8Array(16);
+                    for (let i = 0; i < 4; i++) {
+                        const word = iv.words[i];
+                        ivArray[i * 4] = (word >>> 24) & 0xff;
+                        ivArray[i * 4 + 1] = (word >>> 16) & 0xff;
+                        ivArray[i * 4 + 2] = (word >>> 8) & 0xff;
+                        ivArray[i * 4 + 3] = word & 0xff;
+                    }
+                    
+                    // Convert encrypted data to byte array
+                    const encArray = new Uint8Array(encryptedBytes.words.length * 4);
+                    for (let i = 0; i < encryptedBytes.words.length; i++) {
+                        const word = encryptedBytes.words[i];
+                        if (i * 4 < encArray.length) encArray[i * 4] = (word >>> 24) & 0xff;
+                        if (i * 4 + 1 < encArray.length) encArray[i * 4 + 1] = (word >>> 16) & 0xff;
+                        if (i * 4 + 2 < encArray.length) encArray[i * 4 + 2] = (word >>> 8) & 0xff;
+                        if (i * 4 + 3 < encArray.length) encArray[i * 4 + 3] = word & 0xff;
+                    }
+                    
+                    // Combine arrays (backend format)
+                    const combined = new Uint8Array(ivArray.length + encArray.length);
+                    combined.set(ivArray);
+                    combined.set(encArray, ivArray.length);
+                    
+                    return btoa(String.fromCharCode.apply(null, combined));
+                } catch (error) {
+                    console.error('Encryption error:', error);
+                    throw new Error('Failed to encrypt data');
+                }
+            }
+
+            decrypt(encryptedData) {
+                try {
+                    const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+                    const ivBytes = combined.slice(0, 16);
+                    const encryptedBytes = combined.slice(16);
+                    
+                    // Convert IV bytes to WordArray
+                    const ivWords = [];
+                    for (let i = 0; i < 16; i += 4) {
+                        const word = (ivBytes[i] << 24) | (ivBytes[i + 1] << 16) | (ivBytes[i + 2] << 8) | ivBytes[i + 3];
+                        ivWords.push(word);
+                    }
+                    const iv = CryptoJS.lib.WordArray.create(ivWords);
+                    
+                    // Convert encrypted bytes to WordArray
+                    const encWords = [];
+                    for (let i = 0; i < encryptedBytes.length; i += 4) {
+                        const word = (encryptedBytes[i] << 24) | (encryptedBytes[i + 1] << 16) | (encryptedBytes[i + 2] << 8) | encryptedBytes[i + 3];
+                        encWords.push(word);
+                    }
+                    const encrypted = CryptoJS.lib.WordArray.create(encWords, encryptedBytes.length);
+                    
+                    const key = this.generateKey();
+                    
+                    const decrypted = CryptoJS.AES.decrypt(
+                        { ciphertext: encrypted },
+                        key,
+                        {
+                            iv: iv,
+                            mode: CryptoJS.mode.CBC,
+                            padding: CryptoJS.pad.Pkcs7
+                        }
+                    );
+                    
+                    return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
+                } catch (error) {
+                    console.error('Decryption error:', error);
+                    throw new Error('Failed to decrypt data');
+                }
+            }
+        }
+
+        const encryption = new LMSEncryption();
+
+        async function performLogin(credentials, userType) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="result">Testing ${userType} login...</div>`;
+            
+            try {
+                console.log(`--- ${userType} Login Test ---`);
+                console.log('1. Login credentials:', credentials);
+                
+                // Encrypt the credentials
+                const encryptedData = encryption.encrypt(credentials);
+                console.log('2. Encrypted data:', encryptedData);
+                
+                // Create the request payload
+                const requestPayload = {
+                    encryptedData: encryptedData
+                };
+                console.log('3. Request payload:', requestPayload);
+                
+                // Send the login request
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestPayload)
+                });
+                
+                console.log('4. Response status:', response.status);
+                const result = await response.json();
+                console.log('5. Response body:', result);
+                
+                if (result.success) {
+                    // Decrypt the response
+                    const decryptedResponse = encryption.decrypt(result.data);
+                    console.log('6. Decrypted response:', decryptedResponse);
+                    
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <h3>✅ ${userType} Login Successful!</h3>
+                            <p><strong>NIC:</strong> ${decryptedResponse.nic}</p>
+                            <p><strong>Role:</strong> ${decryptedResponse.role}</p>
+                            <p><strong>Email:</strong> ${decryptedResponse.email || 'N/A'}</p>
+                            <p><strong>Token:</strong> ${decryptedResponse.token.substring(0, 50)}...</p>
+                            <details>
+                                <summary>Full Response Details</summary>
+                                <pre>${JSON.stringify(decryptedResponse, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            <h3>❌ ${userType} Login Failed</h3>
+                            <p>${result.message}</p>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Error Testing ${userType} Login</h3>
+                        <p>${error.message}</p>
+                        <p>Check browser console for details.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function testAdminLogin() {
+            performLogin({ nic: '199912345678', password: 'Admin@123' }, 'Admin');
+        }
+
+        function testLecturerLogin() {
+            performLogin({ nic: '198001234567', password: 'Lecturer@123' }, 'Lecturer');
+        }
+
+        function testStudentLogin() {
+            performLogin({ nic: '200001234567', password: 'Student@123' }, 'Student');
+        }
+
+        function showEncryptionDetails() {
+            const resultDiv = document.getElementById('result');
+            
+            const testData = { nic: '199912345678', password: 'Admin@123' };
+            const encrypted = encryption.encrypt(testData);
+            
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <h3>🔐 Encryption Details</h3>
+                    <p><strong>Secret Key:</strong> ${encryption.secretKey}</p>
+                    <p><strong>Test Data:</strong></p>
+                    <pre>${JSON.stringify(testData, null, 2)}</pre>
+                    <p><strong>Encrypted Data:</strong></p>
+                    <pre>${encrypted}</pre>
+                    <p><strong>Use this cURL command:</strong></p>
+                    <pre>curl -X POST http://localhost:8080/api/auth/login \\
+  -H "Content-Type: application/json" \\
+  -d '{"encryptedData":"${encrypted}"}'</pre>
+                </div>
+            `;
+        }
+
+        // Show initial instructions
+        document.getElementById('result').innerHTML = `
+            <div class="result">
+                <h3>📝 Instructions</h3>
+                <p>1. Make sure your LMS backend is running on port 8080</p>
+                <p>2. Click any login button to test encrypted authentication</p>
+                <p>3. Check browser console for detailed logs</p>
+                <p>4. Use "Show Encryption Details" to get cURL commands</p>
+                
+                <h4>Available Test Users:</h4>
+                <ul>
+                    <li><strong>Admin:</strong> NIC: 199912345678, Password: Admin@123</li>
+                    <li><strong>Lecturer:</strong> NIC: 198001234567, Password: Lecturer@123</li>
+                    <li><strong>Student:</strong> NIC: 200001234567, Password: Student@123</li>
+                </ul>
+            </div>
+        `;
+    </script>
+</body>
+</html>
