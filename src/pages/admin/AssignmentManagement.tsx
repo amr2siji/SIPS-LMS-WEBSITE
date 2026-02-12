@@ -1,74 +1,30 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, BookOpen, Edit, Trash2, Eye, EyeOff, X, Upload as UploadIcon, File, Loader } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../contexts/AuthContext';
+import { ArrowLeft, Plus, BookOpen, Edit, Trash2, Eye, EyeOff, X, File, Loader } from 'lucide-react';
+import { assignmentService, AssignmentResponse, AssignmentCreateRequest, AssignmentUpdateRequest } from '../../services/assignmentService';
+import { academicStructureService } from '../../services/academicStructureService';
+import { intakeService } from '../../services/intakeService';
+import { intakeModuleService } from '../../services/intakeModuleService';
+import { moduleService } from '../../services/moduleService';
+import { PaginatedResponse } from '../../services/apiService';
 
-interface Faculty {
-  id: string;
+interface SelectOption {
+  id: number;
   name: string;
-}
-
-interface Department {
-  id: string;
-  name: string;
-  faculty_id: string;
-}
-
-interface Program {
-  id: string;
-  name: string;
-  department_id: string;
-}
-
-interface Intake {
-  id: string;
-  intake_name: string;
-  program_id: string;
-}
-
-interface Module {
-  id: string;
-  module_code: string;
-  module_name: string;
-  program_id: string;
-  intake_id: string;
-}
-
-interface Assignment {
-  id: string;
-  title: string;
-  description: string;
-  due_date: string;
-  max_marks: number;
-  is_published: boolean;
-  module_id: string;
-  intake_id: string;
-  assignment_file_url?: string;
-  modules?: {
-    module_code: string;
-    module_name: string;
-  };
-  intakes?: {
-    intake_name: string;
-  };
 }
 
 export function AssignmentManagement() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [faculties, setFaculties] = useState<Faculty[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [programs, setPrograms] = useState<Program[]>([]);
-  const [intakes, setIntakes] = useState<Intake[]>([]);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [instructorModules, setInstructorModules] = useState<Module[]>([]);
-  const [isInstructor, setIsInstructor] = useState(false);
-  const [selectedModuleCard, setSelectedModuleCard] = useState<string>('');
+  const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
+  const [faculties, setFaculties] = useState<SelectOption[]>([]);
+  const [departments, setDepartments] = useState<SelectOption[]>([]);
+  const [programs, setPrograms] = useState<SelectOption[]>([]);
+  const [intakes, setIntakes] = useState<SelectOption[]>([]);
+  const [modules, setModules] = useState<SelectOption[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<AssignmentResponse | null>(null);
   
   // Filter states
   const [filterFaculty, setFilterFaculty] = useState('all');
@@ -78,17 +34,14 @@ export function AssignmentManagement() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Dropdown data for filters (Admin only)
-  const [filterFaculties, setFilterFaculties] = useState<Faculty[]>([]);
-  const [filterDepartments, setFilterDepartments] = useState<Department[]>([]);
-  const [filterPrograms, setFilterPrograms] = useState<Program[]>([]);
-  const [filterModules, setFilterModules] = useState<Module[]>([]);
+  // Dropdown data for filters
+  const [filterFaculties, setFilterFaculties] = useState<SelectOption[]>([]);
+  const [filterDepartments, setFilterDepartments] = useState<SelectOption[]>([]);
+  const [filterPrograms, setFilterPrograms] = useState<SelectOption[]>([]);
+  const [filterModules, setFilterModules] = useState<SelectOption[]>([]);
   
-  // Form state
+  // Form state - Simplified to 3 steps: Intake → Module → Assignment Details
   const [step, setStep] = useState(1);
-  const [selectedFaculty, setSelectedFaculty] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedProgram, setSelectedProgram] = useState('');
   const [selectedIntake, setSelectedIntake] = useState('');
   const [selectedModule, setSelectedModule] = useState('');
   const [assignmentTitle, setAssignmentTitle] = useState('');
@@ -99,523 +52,135 @@ export function AssignmentManagement() {
   const [assignmentFile, setAssignmentFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Notification state
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationConfig, setNotificationConfig] = useState({
+    type: 'success' as 'success' | 'error' | 'warning' | 'info',
+    title: '',
+    message: '',
+    details: [] as string[]
+  });
+
+  // Confirmation modal state
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationConfig, setConfirmationConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    confirmText: 'Confirm',
+    type: 'danger' as 'danger' | 'warning'
+  });
+
+  // File preview state
+  const [showFilePreview, setShowFilePreview] = useState(false);
+  const [previewFileUrl, setPreviewFileUrl] = useState('');
+  const [previewFileName, setPreviewFileName] = useState('');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const pageSize = 9;
+
+  // Show notification helper
+  const showSuccessNotification = (title: string, message: string, details: string[] = []) => {
+    setNotificationConfig({ type: 'success', title, message, details });
+    setShowNotification(true);
+  };
+
+  const showErrorNotification = (title: string, message: string, details: string[] = []) => {
+    setNotificationConfig({ type: 'error', title, message, details });
+    setShowNotification(true);
+  };
+
+  const showConfirmationModal = (title: string, message: string, onConfirm: () => void, confirmText: string = 'Confirm', type: 'danger' | 'warning' = 'danger') => {
+    setConfirmationConfig({ title, message, onConfirm, confirmText, type });
+    setShowConfirmation(true);
+  };
+
   useEffect(() => {
-    const initializeData = async () => {
-      await checkUserRole();
-      loadAssignments();
-      loadFaculties();
-      if (profile?.role !== 'instructor') {
-        loadFilterFaculties();
-      }
-    };
-    initializeData();
+    loadFaculties(); // Still needed for filters
+    loadAllIntakes(); // Load all intakes for Step 1
+    loadAssignments();
   }, []);
 
   useEffect(() => {
-    if (selectedFaculty) {
-      loadDepartments(selectedFaculty);
-    }
-  }, [selectedFaculty]);
+    loadAssignments();
+  }, [currentPage, searchTerm, filterFaculty, filterDepartment, filterProgram, filterModule, filterStatus]);
 
+  // When intake is selected, load modules for that intake
   useEffect(() => {
-    if (selectedDepartment) {
-      loadPrograms(selectedDepartment);
+    if (selectedIntake && selectedIntake !== '') {
+      loadModulesForIntake(Number(selectedIntake));
+    } else {
+      setModules([]);
     }
-  }, [selectedDepartment]);
+  }, [selectedIntake]);
 
+  // Filter cascading
   useEffect(() => {
-    if (selectedProgram) {
-      loadIntakes(selectedProgram);
-    }
-  }, [selectedProgram]);
-
-  useEffect(() => {
-    if (selectedProgram && selectedIntake) {
-      loadModules(selectedProgram, selectedIntake);
-    }
-  }, [selectedProgram, selectedIntake]);
-
-  // Filter useEffects for Admin
-  useEffect(() => {
-    if (!isInstructor && filterFaculty !== 'all') {
-      loadFilterDepartments(filterFaculty);
+    if (filterFaculty !== 'all') {
+      loadFilterDepartments(Number(filterFaculty));
     } else {
       setFilterDepartments([]);
       setFilterPrograms([]);
       setFilterModules([]);
     }
-  }, [filterFaculty, isInstructor]);
+  }, [filterFaculty]);
 
   useEffect(() => {
-    if (!isInstructor && filterDepartment !== 'all') {
-      loadFilterPrograms(filterDepartment);
+    if (filterDepartment !== 'all') {
+      loadFilterPrograms(Number(filterDepartment));
     } else {
       setFilterPrograms([]);
       setFilterModules([]);
     }
-  }, [filterDepartment, isInstructor]);
+  }, [filterDepartment]);
 
   useEffect(() => {
-    if (!isInstructor && filterProgram !== 'all') {
-      loadFilterModules(filterProgram);
+    if (filterProgram !== 'all') {
+      loadFilterIntakes(Number(filterProgram));
     } else {
       setFilterModules([]);
     }
-  }, [filterProgram, isInstructor]);
-
-  const checkUserRole = async () => {
-    try {
-      if (profile?.role === 'instructor') {
-        setIsInstructor(true);
-        await loadInstructorModules();
-      }
-    } catch (error) {
-      console.error('Error checking user role:', error);
-    }
-  };
-
-  const loadInstructorModules = async () => {
-    try {
-      if (!profile?.id) return;
-
-      // Get lecturer's assigned modules
-      const { data: lecturerAssignments, error } = await supabase
-        .from('lecturer_assignments')
-        .select(`
-          module_id,
-          modules (
-            id,
-            module_code,
-            module_name,
-            program_id,
-            intake_id
-          )
-        `)
-        .eq('lecturer_id', profile.id);
-
-      if (error) throw error;
-
-      const assignedModules = lecturerAssignments
-        ?.map((la: any) => la.modules)
-        .filter((m: any) => m !== null) || [];
-
-      // Add dummy data if no modules found (for demonstration)
-      if (assignedModules.length === 0) {
-        const dummyModules = [
-          {
-            id: 'dummy-1',
-            module_code: 'CS101',
-            module_name: 'Introduction to Programming',
-            program_id: 'dummy-prog-1',
-            intake_id: 'dummy-intake-1'
-          },
-          {
-            id: 'dummy-2',
-            module_code: 'CS201',
-            module_name: 'Data Structures and Algorithms',
-            program_id: 'dummy-prog-1',
-            intake_id: 'dummy-intake-1'
-          },
-          {
-            id: 'dummy-3',
-            module_code: 'CS301',
-            module_name: 'Database Management Systems',
-            program_id: 'dummy-prog-1',
-            intake_id: 'dummy-intake-2'
-          },
-          {
-            id: 'dummy-4',
-            module_code: 'CS401',
-            module_name: 'Web Development',
-            program_id: 'dummy-prog-2',
-            intake_id: 'dummy-intake-2'
-          }
-        ];
-        setInstructorModules(dummyModules);
-      } else {
-        setInstructorModules(assignedModules);
-      }
-    } catch (error) {
-      console.error('Error loading instructor modules:', error);
-      // Set dummy data on error as well
-      const dummyModules = [
-        {
-          id: 'dummy-1',
-          module_code: 'CS101',
-          module_name: 'Introduction to Programming',
-          program_id: 'dummy-prog-1',
-          intake_id: 'dummy-intake-1'
-        },
-        {
-          id: 'dummy-2',
-          module_code: 'CS201',
-          module_name: 'Data Structures and Algorithms',
-          program_id: 'dummy-prog-1',
-          intake_id: 'dummy-intake-1'
-        },
-        {
-          id: 'dummy-3',
-          module_code: 'CS301',
-          module_name: 'Database Management Systems',
-          program_id: 'dummy-prog-1',
-          intake_id: 'dummy-intake-2'
-        },
-        {
-          id: 'dummy-4',
-          module_code: 'CS401',
-          module_name: 'Web Development',
-          program_id: 'dummy-prog-2',
-          intake_id: 'dummy-intake-2'
-        }
-      ];
-      setInstructorModules(dummyModules);
-    }
-  };
+  }, [filterProgram]);
 
   const loadAssignments = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('assignments')
-        .select(`
-          *,
-          modules (module_code, module_name),
-          intakes (intake_name)
-        `)
-        .order('created_at', { ascending: false });
+      const response = await assignmentService.searchAssignments({
+        search: searchTerm,
+        facultyId: filterFaculty !== 'all' ? Number(filterFaculty) : undefined,
+        departmentId: filterDepartment !== 'all' ? Number(filterDepartment) : undefined,
+        programId: filterProgram !== 'all' ? Number(filterProgram) : undefined,
+        moduleId: filterModule !== 'all' ? Number(filterModule) : undefined,
+        isPublished: filterStatus === 'all' ? undefined : filterStatus === 'published',
+        page: currentPage,
+        size: pageSize,
+        sortBy: 'dueDate',
+        sortDirection: 'desc'
+      });
 
-      if (error) throw error;
-      
-      // Add dummy assignments if instructor has no real assignments
-      const isInstructorRole = profile?.role === 'instructor';
-      if (isInstructorRole && (!data || data.length === 0)) {
-        const dummyAssignments = [
-          {
-            id: 'dummy-assign-1',
-            title: 'Basic Programming Concepts',
-            description: 'Complete exercises on variables, data types, and control structures',
-            due_date: '2025-12-25',
-            max_marks: 100,
-            is_published: true,
-            module_id: 'dummy-1',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS101', module_name: 'Introduction to Programming' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-2',
-            title: 'Object-Oriented Programming Assignment',
-            description: 'Implement a class hierarchy for a library management system',
-            due_date: '2025-12-30',
-            max_marks: 150,
-            is_published: true,
-            module_id: 'dummy-1',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS101', module_name: 'Introduction to Programming' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-3',
-            title: 'Sorting Algorithms Implementation',
-            description: 'Implement and analyze Bubble Sort, Quick Sort, and Merge Sort',
-            due_date: '2026-01-10',
-            max_marks: 120,
-            is_published: true,
-            module_id: 'dummy-2',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS201', module_name: 'Data Structures and Algorithms' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-4',
-            title: 'Binary Search Tree Operations',
-            description: 'Create a BST with insert, delete, search, and traversal operations',
-            due_date: '2026-01-15',
-            max_marks: 100,
-            is_published: false,
-            module_id: 'dummy-2',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS201', module_name: 'Data Structures and Algorithms' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-5',
-            title: 'SQL Query Assignment',
-            description: 'Write complex SQL queries for the given database schema',
-            due_date: '2026-01-20',
-            max_marks: 80,
-            is_published: true,
-            module_id: 'dummy-3',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS301', module_name: 'Database Management Systems' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-6',
-            title: 'Database Normalization Project',
-            description: 'Normalize the given database schema up to 3NF',
-            due_date: '2026-01-25',
-            max_marks: 100,
-            is_published: true,
-            module_id: 'dummy-3',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS301', module_name: 'Database Management Systems' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-7',
-            title: 'Responsive Website Design',
-            description: 'Create a fully responsive website using HTML, CSS, and JavaScript',
-            due_date: '2026-02-01',
-            max_marks: 150,
-            is_published: true,
-            module_id: 'dummy-4',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS401', module_name: 'Web Development' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-8',
-            title: 'REST API Development',
-            description: 'Build a RESTful API using Node.js and Express',
-            due_date: '2026-02-10',
-            max_marks: 120,
-            is_published: false,
-            module_id: 'dummy-4',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS401', module_name: 'Web Development' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-9',
-            title: 'Functions and Recursion',
-            description: 'Write recursive functions to solve mathematical problems',
-            due_date: '2026-01-05',
-            max_marks: 90,
-            is_published: true,
-            module_id: 'dummy-1',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS101', module_name: 'Introduction to Programming' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-10',
-            title: 'File Handling in Python',
-            description: 'Create programs to read, write, and manipulate files',
-            due_date: '2026-01-12',
-            max_marks: 80,
-            is_published: false,
-            module_id: 'dummy-1',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS101', module_name: 'Introduction to Programming' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-11',
-            title: 'Graph Algorithms',
-            description: 'Implement BFS, DFS, and Dijkstra\'s shortest path algorithm',
-            due_date: '2026-01-18',
-            max_marks: 130,
-            is_published: true,
-            module_id: 'dummy-2',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS201', module_name: 'Data Structures and Algorithms' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-12',
-            title: 'Hash Table Implementation',
-            description: 'Create a hash table with collision handling using chaining',
-            due_date: '2026-01-22',
-            max_marks: 110,
-            is_published: true,
-            module_id: 'dummy-2',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS201', module_name: 'Data Structures and Algorithms' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-13',
-            title: 'Dynamic Programming Problems',
-            description: 'Solve classic DP problems: Knapsack, LCS, Matrix Chain Multiplication',
-            due_date: '2026-01-28',
-            max_marks: 140,
-            is_published: false,
-            module_id: 'dummy-2',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS201', module_name: 'Data Structures and Algorithms' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-14',
-            title: 'ER Diagram Design',
-            description: 'Design an ER diagram for a hospital management system',
-            due_date: '2026-01-28',
-            max_marks: 70,
-            is_published: true,
-            module_id: 'dummy-3',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS301', module_name: 'Database Management Systems' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-15',
-            title: 'Transaction Management',
-            description: 'Demonstrate ACID properties and implement transaction handling',
-            due_date: '2026-02-03',
-            max_marks: 90,
-            is_published: true,
-            module_id: 'dummy-3',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS301', module_name: 'Database Management Systems' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-16',
-            title: 'Indexing and Query Optimization',
-            description: 'Create indexes and optimize slow database queries',
-            due_date: '2026-02-08',
-            max_marks: 100,
-            is_published: false,
-            module_id: 'dummy-3',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS301', module_name: 'Database Management Systems' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-17',
-            title: 'React Component Development',
-            description: 'Build reusable React components with props and state management',
-            due_date: '2026-02-05',
-            max_marks: 130,
-            is_published: true,
-            module_id: 'dummy-4',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS401', module_name: 'Web Development' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-18',
-            title: 'Authentication System',
-            description: 'Implement JWT-based user authentication and authorization',
-            due_date: '2026-02-15',
-            max_marks: 140,
-            is_published: true,
-            module_id: 'dummy-4',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS401', module_name: 'Web Development' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-19',
-            title: 'Full Stack Project',
-            description: 'Build a complete e-commerce website with frontend and backend',
-            due_date: '2026-02-28',
-            max_marks: 200,
-            is_published: false,
-            module_id: 'dummy-4',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS401', module_name: 'Web Development' },
-            intakes: { intake_name: 'September 2025' }
-          }
-        ];
-        setAssignments(dummyAssignments);
+      if (response.success && response.data) {
+        const paginatedData = response.data as PaginatedResponse<AssignmentResponse>;
+        const assignmentsList = paginatedData.content || [];
+        console.log('📋 Loaded assignments:', assignmentsList);
+        console.log('🔍 First assignment data:', assignmentsList[0]);
+        setAssignments(assignmentsList);
+        setTotalElements(paginatedData.totalElements || 0);
+        setTotalPages(paginatedData.totalPages || 0);
       } else {
-        setAssignments(data || []);
+        // If API call fails, set empty array
+        setAssignments([]);
+        setTotalElements(0);
+        setTotalPages(0);
       }
     } catch (error) {
       console.error('Error loading assignments:', error);
-      // Set dummy data on error for instructors
-      const isInstructorRole = profile?.role === 'instructor';
-      if (isInstructorRole) {
-        const dummyAssignments = [
-          {
-            id: 'dummy-assign-1',
-            title: 'Basic Programming Concepts',
-            description: 'Complete exercises on variables, data types, and control structures',
-            due_date: '2025-12-25',
-            max_marks: 100,
-            is_published: true,
-            module_id: 'dummy-1',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS101', module_name: 'Introduction to Programming' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-2',
-            title: 'Sorting Algorithms Implementation',
-            description: 'Implement and analyze Bubble Sort, Quick Sort, and Merge Sort',
-            due_date: '2026-01-10',
-            max_marks: 120,
-            is_published: true,
-            module_id: 'dummy-2',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS201', module_name: 'Data Structures and Algorithms' },
-            intakes: { intake_name: 'January 2025' }
-          },
-          {
-            id: 'dummy-assign-3',
-            title: 'SQL Query Assignment',
-            description: 'Write complex SQL queries for the given database schema',
-            due_date: '2026-01-20',
-            max_marks: 80,
-            is_published: true,
-            module_id: 'dummy-3',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS301', module_name: 'Database Management Systems' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-4',
-            title: 'Responsive Website Design',
-            description: 'Create a fully responsive website using HTML, CSS, and JavaScript',
-            due_date: '2026-02-01',
-            max_marks: 150,
-            is_published: true,
-            module_id: 'dummy-4',
-            intake_id: 'dummy-intake-2',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS401', module_name: 'Web Development' },
-            intakes: { intake_name: 'September 2025' }
-          },
-          {
-            id: 'dummy-assign-5',
-            title: 'Hash Table Implementation',
-            description: 'Create a hash table with collision handling using chaining',
-            due_date: '2026-01-22',
-            max_marks: 110,
-            is_published: true,
-            module_id: 'dummy-2',
-            intake_id: 'dummy-intake-1',
-            assignment_file_url: undefined,
-            modules: { module_code: 'CS201', module_name: 'Data Structures and Algorithms' },
-            intakes: { intake_name: 'January 2025' }
-          }
-        ];
-        setAssignments(dummyAssignments);
-      }
+      // Set empty array on error so UI still renders
+      setAssignments([]);
+      setTotalElements(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
@@ -623,297 +188,401 @@ export function AssignmentManagement() {
 
   const loadFaculties = async () => {
     try {
-      const { data, error } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFaculties(data || []);
+      const response = await academicStructureService.faculty.getAll();
+      if (response.success && response.data) {
+        const options = response.data.map((f: any) => ({ id: f.id, name: f.name }));
+        setFaculties(options);
+        setFilterFaculties(options);
+      } else {
+        setFaculties([]);
+        setFilterFaculties([]);
+      }
     } catch (error) {
       console.error('Error loading faculties:', error);
+      setFaculties([]);
+      setFilterFaculties([]);
     }
   };
 
-  const loadDepartments = async (facultyId: string) => {
+  // Load all intakes for Step 1 selection
+  const loadAllIntakes = async () => {
     try {
-      const { data, error } = await supabase
-        .from('departments')
-        .select('id, name, faculty_id')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
+      const token = localStorage.getItem('jwt_token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/intakes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (error) throw error;
-      setDepartments(data || []);
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Raw intake API response for assignments:', result);
+        if (result.data && Array.isArray(result.data)) {
+          const mappedIntakes = result.data.map((intake: any) => ({
+            id: intake.id,
+            name: `${intake.intakeName} - ${intake.programName} (${intake.facultyName})`,
+            intakeCode: intake.intakeCode,
+            intakeName: intake.intakeName,
+            programName: intake.programName,
+            facultyName: intake.facultyName
+          }));
+          console.log('Mapped intakes for assignment creation:', mappedIntakes);
+          setIntakes(mappedIntakes);
+        } else {
+          console.warn('No intakes data in response');
+          setIntakes([]);
+        }
+      } else {
+        console.error('Failed to load intakes:', response.status);
+        setIntakes([]);
+      }
+    } catch (error) {
+      console.error('Error loading all intakes:', error);
+      setIntakes([]);
+    }
+  };
+
+  // Load modules assigned to selected intake using intakeModuleService
+  const loadModulesForIntake = async (intakeId: number) => {
+    try {
+      console.log('Loading modules for intake ID:', intakeId);
+      const response = await intakeModuleService.getModulesByIntake(intakeId);
+      console.log('Modules response from intakeModuleService:', response);
+      if (response && response.success && response.data) {
+        // Map IntakeModuleDTO to SelectOption interface
+        const mappedModules = response.data.map((im: any) => ({
+          id: im.moduleId,
+          name: `${im.moduleCode} - ${im.moduleName}`
+        }));
+        console.log('Mapped modules for assignment creation:', mappedModules);
+        setModules(mappedModules);
+      } else {
+        console.warn('No modules found for intake:', intakeId);
+        setModules([]);
+      }
+    } catch (error) {
+      console.error('Error loading modules for intake:', error);
+      setModules([]);
+    }
+  };
+
+  const loadDepartments = async (facultyId: number) => {
+    try {
+      const response = await academicStructureService.department.getByFaculty(facultyId);
+      if (response.success && response.data) {
+        setDepartments(response.data.map((d: any) => ({ id: d.id, name: d.departmentName })));
+      }
     } catch (error) {
       console.error('Error loading departments:', error);
+      setDepartments([]);
     }
   };
 
-  const loadPrograms = async (departmentId: string) => {
+  const loadPrograms = async (departmentId: number) => {
     try {
-      const { data, error } = await supabase
-        .from('programs')
-        .select('id, name, department_id')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setPrograms(data || []);
+      // Get programs by department - we need to use faculty id too
+      const response = await academicStructureService.program.getAll();
+      if (response.success && response.data) {
+        const filtered = response.data.filter((p: any) => p.departmentId === departmentId);
+        setPrograms(filtered.map((p: any) => ({ id: p.id, name: p.name })));
+      }
     } catch (error) {
       console.error('Error loading programs:', error);
+      setPrograms([]);
     }
   };
 
-  const loadIntakes = async (programId: string) => {
+  const loadIntakes = async (programId: number) => {
     try {
-      const { data, error } = await supabase
-        .from('intakes')
-        .select('id, intake_name, program_id')
-        .eq('program_id', programId)
-        .eq('is_active', true)
-        .order('intake_year', { ascending: false });
-
-      if (error) throw error;
-      setIntakes(data || []);
+      console.log('Loading intakes for program:', programId);
+      const response = await intakeService.getIntakesByProgram(programId);
+      console.log('Intakes response:', response);
+      if (response.success && response.data) {
+        console.log('Intakes data:', response.data);
+        const mappedIntakes = response.data.map((i: any) => ({ 
+          id: i.id, 
+          name: i.intakeName || `${i.intakeCode}` 
+        }));
+        console.log('Mapped intakes:', mappedIntakes);
+        setIntakes(mappedIntakes);
+      } else {
+        console.warn('Intakes response not successful or no data');
+        setIntakes([]);
+      }
     } catch (error) {
       console.error('Error loading intakes:', error);
+      setIntakes([]);
     }
   };
 
-  const loadModules = async (programId: string, intakeId: string) => {
+  const loadModules = async (programId: number, intakeId: number) => {
     try {
-      const { data, error } = await supabase
-        .from('modules')
-        .select('id, module_code, module_name, program_id, intake_id')
-        .eq('program_id', programId)
-        .eq('intake_id', intakeId)
-        .eq('is_active', true)
-        .order('module_code');
-
-      if (error) throw error;
-      setModules(data || []);
+      // Load modules by program (intake filtering might be done on backend)
+      const response = await moduleService.getModulesByProgram(programId);
+      if (response.success && response.data) {
+        setModules(response.data.map((m: any) => ({ id: m.id, name: `${m.moduleCode} - ${m.moduleName}` })));
+      }
     } catch (error) {
       console.error('Error loading modules:', error);
+      setModules([]);
     }
   };
 
-  // Filter load functions for Admin
-  const loadFilterFaculties = async () => {
+  const loadFilterDepartments = async (facultyId: number) => {
     try {
-      const { data, error } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFilterFaculties(data || []);
-    } catch (error) {
-      console.error('Error loading filter faculties:', error);
-    }
-  };
-
-  const loadFilterDepartments = async (facultyId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('departments')
-        .select('id, name, faculty_id')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFilterDepartments(data || []);
+      const response = await academicStructureService.department.getByFaculty(facultyId);
+      if (response.success && response.data) {
+        setFilterDepartments(response.data.map((d: any) => ({ id: d.id, name: d.departmentName })));
+      }
     } catch (error) {
       console.error('Error loading filter departments:', error);
+      setFilterDepartments([]);
     }
   };
 
-  const loadFilterPrograms = async (departmentId: string) => {
+  const loadFilterPrograms = async (departmentId: number) => {
     try {
-      const { data, error } = await supabase
-        .from('programs')
-        .select('id, name, department_id')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFilterPrograms(data || []);
+      const response = await academicStructureService.program.getAll();
+      if (response.success && response.data) {
+        const filtered = response.data.filter((p: any) => p.departmentId === departmentId);
+        setFilterPrograms(filtered.map((p: any) => ({ id: p.id, name: p.name })));
+      }
     } catch (error) {
       console.error('Error loading filter programs:', error);
+      setFilterPrograms([]);
     }
   };
 
-  const loadFilterModules = async (programId: string) => {
+  const loadFilterIntakes = async (programId: number) => {
     try {
-      const { data, error } = await supabase
-        .from('modules')
-        .select('id, module_code, module_name, program_id')
-        .eq('program_id', programId)
-        .eq('is_active', true)
-        .order('module_code');
-
-      if (error) throw error;
-      setFilterModules(data || []);
+      const response = await moduleService.getModulesByProgram(programId);
+      if (response.success && response.data) {
+        setFilterModules(response.data.map((m: any) => ({ id: m.id, name: `${m.moduleCode} - ${m.moduleName}` })));
+      }
     } catch (error) {
       console.error('Error loading filter modules:', error);
+      setFilterModules([]);
     }
   };
 
-  const handleFileUpload = async (file: File): Promise<string | null> => {
+  const handleFileUpload = async (file?: File) => {
+    const fileToUpload = file || assignmentFile;
+    if (!fileToUpload) return;
+
     try {
       setUploading(true);
-      
-      // Validate file type
-      const allowedTypes = [
-        // Documents
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        // Archives
-        'application/zip',
-        'application/x-zip-compressed',
-        'application/x-rar-compressed',
-        // Audio
-        'audio/mpeg',
-        'audio/mp3',
-        'audio/wav',
-        'audio/ogg',
-        // Video
-        'video/mp4',
-        'video/mpeg',
-        'video/quicktime',
-        'video/x-msvideo',
-        'video/webm'
-      ];
-
-      if (!allowedTypes.includes(file.type)) {
-        alert('Invalid file type. Please upload PDF, Word, Excel, PowerPoint, ZIP, Audio, or Video files.');
-        return null;
+      const response = await assignmentService.uploadAssignmentFile(fileToUpload);
+      console.log('📤 File upload response:', response);
+      if (response.success && response.data) {
+        console.log('✅ File uploaded - URL:', response.data.fileUrl, 'Name:', response.data.fileName);
+        setAssignmentFileUrl(response.data.fileUrl);
+        showSuccessNotification('File Uploaded', `${fileToUpload.name} uploaded successfully!`);
+      } else {
+        console.error('❌ File upload failed:', response.message);
+        showErrorNotification('Upload Failed', response.message || 'Failed to upload file');
       }
-
-      // Validate file size (50MB max)
-      const maxSize = 50 * 1024 * 1024; // 50MB
-      if (file.size > maxSize) {
-        alert('File size exceeds 50MB limit.');
-        return null;
-      }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `assignment-files/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('lms-files')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('lms-files')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert('Failed to upload file. Please try again.');
-      return null;
+      showErrorNotification('Upload Error', 'Failed to upload file. Please try again.');
     } finally {
       setUploading(false);
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setAssignmentFile(file);
-      const fileUrl = await handleFileUpload(file);
-      if (fileUrl) {
-        setAssignmentFileUrl(fileUrl);
-      }
+      setAssignmentFileUrl(''); // Reset URL when new file selected
+      // Auto-upload immediately after selection
+      await handleFileUpload(file);
     }
   };
 
   const handleCreateAssignment = async () => {
-    if (!assignmentTitle || !selectedModule || !selectedIntake || !dueDate) {
-      alert('Please fill in all required fields');
+    if (!selectedModule || !assignmentTitle || !dueDate) {
+      showErrorNotification('Validation Error', 'Please fill all required fields');
       return;
     }
 
     try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny.from('assignments').insert({
-        module_id: selectedModule,
-        intake_id: selectedIntake,
+      console.log('📝 Creating assignment with attachment:', {
+        fileUrl: assignmentFileUrl,
+        fileName: assignmentFile?.name,
+        hasFile: !!assignmentFile
+      });
+      
+      const createRequest: AssignmentCreateRequest = {
+        moduleId: Number(selectedModule),
         title: assignmentTitle,
         description: assignmentDescription,
-        due_date: dueDate,
-        max_marks: maxMarks,
-        assignment_file_url: assignmentFileUrl || null,
-        is_published: false
-      });
+        dueDate: dueDate,
+        maxMarks: maxMarks,
+        attachmentUrl: assignmentFileUrl || undefined,
+        attachmentName: assignmentFile?.name || undefined,
+        isPublished: false
+      };
 
-      if (error) throw error;
+      console.log('🚀 Sending create request:', createRequest);
 
-      alert('Assignment created successfully!');
-      resetForm();
-      loadAssignments();
+      const response = await assignmentService.createAssignment(createRequest);
+      console.log('✅ Create response:', response);
+      
+      if (response.success) {
+        const moduleName = modules.find(m => m.id.toString() === selectedModule)?.name || 'N/A';
+        showSuccessNotification('Assignment Created', 'The assignment has been created successfully!', [
+          `Title: ${assignmentTitle}`,
+          `Module: ${moduleName}`,
+          `Due Date: ${dueDate}`
+        ]);
+        resetForm();
+        loadAssignments();
+      } else {
+        showErrorNotification('Creation Failed', response.message || 'Failed to create assignment');
+      }
     } catch (error: any) {
       console.error('Error creating assignment:', error);
-      alert('Failed to create assignment: ' + error.message);
+      const errorMessage = error?.message || 'Failed to create assignment. Please try again.';
+      
+      // Check if it's a duplicate assignment error
+      if (errorMessage.includes('assignment already exists') || errorMessage.includes('Only one assignment per module')) {
+        showErrorNotification(
+          'Module Limit Reached',
+          'This module already has an assignment. Only one assignment per module is allowed. Please edit the existing assignment or delete it before creating a new one.'
+        );
+      } else {
+        showErrorNotification('Error', errorMessage);
+      }
     }
   };
 
-  const handleTogglePublish = async (assignmentId: string, currentStatus: boolean) => {
-    try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny
-        .from('assignments')
-        .update({ is_published: !currentStatus })
-        .eq('id', assignmentId);
+  const handleUpdateAssignment = async () => {
+    if (!editingAssignment || !assignmentTitle || !dueDate) {
+      showErrorNotification('Validation Error', 'Please fill all required fields');
+      return;
+    }
 
-      if (error) throw error;
-      loadAssignments();
+    try {
+      const updateRequest: AssignmentUpdateRequest = {
+        title: assignmentTitle,
+        description: assignmentDescription,
+        dueDate: dueDate,
+        maxMarks: maxMarks,
+        attachmentUrl: assignmentFileUrl,
+        attachmentName: assignmentFile?.name,
+        isPublished: editingAssignment.isPublished
+      };
+
+      const response = await assignmentService.updateAssignment(editingAssignment.id, updateRequest);
+      if (response.success) {
+        showSuccessNotification('Assignment Updated', 'The assignment has been updated successfully!', [
+          `Title: ${assignmentTitle}`,
+          `Due Date: ${dueDate}`
+        ]);
+        resetForm();
+        loadAssignments();
+      } else {
+        showErrorNotification('Update Failed', response.message || 'Failed to update assignment');
+      }
+    } catch (error) {
+      console.error('Error updating assignment:', error);
+      showErrorNotification('Error', 'Failed to update assignment. Please try again.');
+    }
+  };
+
+  const handleTogglePublish = async (assignment: AssignmentResponse) => {
+    try {
+      const response = await assignmentService.updatePublishStatus(assignment.id, !assignment.isPublished);
+      if (response.success) {
+        showSuccessNotification(
+          'Status Updated',
+          `Assignment has been ${!assignment.isPublished ? 'published' : 'unpublished'} successfully!`,
+          [`Assignment: ${assignment.title}`]
+        );
+        loadAssignments();
+      } else {
+        showErrorNotification('Update Failed', response.message || 'Failed to update publish status');
+      }
     } catch (error) {
       console.error('Error toggling publish status:', error);
+      showErrorNotification('Error', 'Failed to update publish status. Please try again.');
     }
   };
 
-  const handleDeleteAssignment = async (assignmentId: string) => {
-    if (!confirm('Are you sure you want to delete this assignment?')) return;
+  const handleDeleteAssignment = async (assignment: AssignmentResponse) => {
+    showConfirmationModal(
+      'Delete Assignment',
+      `Are you sure you want to delete this assignment?\n\nTitle: ${assignment.title}\nModule: ${assignment.moduleName}\n\nThis action cannot be undone.`,
+      async () => {
+        try {
+          const response = await assignmentService.deleteAssignment(assignment.id);
+          if (response.success) {
+            showSuccessNotification('Assignment Deleted', 'The assignment has been deleted successfully!', [
+              `Title: ${assignment.title}`
+            ]);
+            loadAssignments();
+          } else {
+            showErrorNotification('Delete Failed', response.message || 'Failed to delete assignment');
+          }
+        } catch (error) {
+          console.error('Error deleting assignment:', error);
+          showErrorNotification('Error', 'Failed to delete assignment. Please try again.');
+        }
+        setShowConfirmation(false);
+      },
+      'Delete',
+      'danger'
+    );
+  };
 
-    try {
-      const { error } = await supabase
-        .from('assignments')
-        .delete()
-        .eq('id', assignmentId);
-
-      if (error) throw error;
-      loadAssignments();
-    } catch (error) {
-      console.error('Error deleting assignment:', error);
-      alert('Failed to delete assignment');
+  const handlePreviewFile = (fileUrl: string, fileName: string) => {
+    const fileExtension = fileName.toLowerCase().split('.').pop();
+    
+    if (fileExtension === 'jpg' || fileExtension === 'jpeg' || fileExtension === 'png' || fileExtension === 'gif') {
+      // Preview image in modal
+      setPreviewFileUrl(fileUrl);
+      setPreviewFileName(fileName);
+      setShowFilePreview(true);
+    } else if (fileExtension === 'pdf') {
+      // Download PDF
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showSuccessNotification('Download Started', `Downloading ${fileName}...`);
+    } else {
+      // Download other file types
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showSuccessNotification('Download Started', `Downloading ${fileName}...`);
     }
+  };
+
+  const openEditModal = (assignment: AssignmentResponse) => {
+    setEditingAssignment(assignment);
+    setAssignmentTitle(assignment.title);
+    setAssignmentDescription(assignment.description || '');
+    setDueDate(assignment.dueDate);
+    setMaxMarks(assignment.maxMarks);
+    setAssignmentFileUrl(assignment.attachmentUrl || '');
+    setShowModal(true);
   };
 
   const resetForm = () => {
     setShowModal(false);
+    setEditingAssignment(null);
     setStep(1);
-    setSelectedFaculty('');
-    setSelectedDepartment('');
-    setSelectedProgram('');
     setSelectedIntake('');
     setSelectedModule('');
-    setSelectedModuleCard('');
+    setModules([]); // Clear modules when resetting
     setAssignmentTitle('');
     setAssignmentDescription('');
     setDueDate('');
@@ -930,37 +599,16 @@ export function AssignmentManagement() {
     setFilterProgram('all');
     setFilterModule('all');
     setFilterStatus('all');
+    setCurrentPage(0);
   };
 
-  const filteredAssignments = assignments.filter(assignment => {
-    const matchesSearch = 
-      assignment.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assignment.modules?.module_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assignment.modules?.module_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesModule = filterModule === 'all' || assignment.module_id === filterModule;
-    
-    // Admin-only filters
-    if (!isInstructor) {
-      const matchesProgram = filterProgram === 'all' || 
-        filterModules.find(m => m.id === assignment.module_id)?.program_id === filterProgram;
-      
-      const matchesDepartment = filterDepartment === 'all' || 
-        filterPrograms.find(p => p.id === filterModules.find(m => m.id === assignment.module_id)?.program_id)?.department_id === filterDepartment;
-      
-      const matchesFaculty = filterFaculty === 'all' || 
-        filterDepartments.find(d => d.id === filterPrograms.find(p => p.id === filterModules.find(m => m.id === assignment.module_id)?.program_id)?.department_id)?.faculty_id === filterFaculty;
-      
-      const matchesStatus = filterStatus === 'all' || 
-        (filterStatus === 'published' && assignment.is_published) ||
-        (filterStatus === 'draft' && !assignment.is_published);
-      
-      return matchesSearch && matchesModule && matchesProgram && matchesDepartment && matchesFaculty && matchesStatus;
-    }
-    
-    // Instructor: simple filter
-    return matchesSearch && matchesModule;
-  });
+  if (loading && currentPage === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -991,576 +639,609 @@ export function AssignmentManagement() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Instructor: Module Cards Section */}
-        {isInstructor && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">My Modules</h2>
-                <p className="text-gray-600 mt-1">Select a module to view and manage its assignments</p>
+                <p className="text-sm text-gray-600">Total Assignments</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{totalElements}</p>
               </div>
-              {filterModule !== 'all' && (
-                <button
-                  onClick={() => setFilterModule('all')}
-                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
-                >
-                  <X size={18} />
-                  Clear Selection
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {instructorModules.length === 0 ? (
-                <div className="col-span-full text-center py-8 bg-white rounded-lg shadow">
-                  <BookOpen className="mx-auto text-gray-400" size={48} />
-                  <p className="mt-4 text-gray-600">No modules assigned to you yet.</p>
-                </div>
-              ) : (
-                instructorModules.map((module) => (
-                  <button
-                    key={module.id}
-                    onClick={() => setFilterModule(module.id)}
-                    className={`text-left p-4 rounded-lg border-2 transition-all ${
-                      filterModule === module.id
-                        ? 'border-emerald-500 bg-emerald-50 shadow-md'
-                        : 'border-gray-300 bg-white hover:border-emerald-300 hover:shadow-md'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="font-bold text-gray-900">{module.module_code}</div>
-                      {filterModule === module.id && (
-                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-600 mb-2">{module.module_name}</div>
-                    <div className="text-xs text-gray-500">
-                      {assignments.filter(a => a.module_id === module.id).length} assignments
-                    </div>
-                  </button>
-                ))
-              )}
+              <BookOpen className="h-8 w-8 text-blue-600" />
             </div>
           </div>
-        )}
-
-        {/* Instructor: Search Bar */}
-        {isInstructor && filterModule !== 'all' && (
-          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-            <input
-              type="text"
-              placeholder="Search assignments by title..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-        )}
-
-        {/* Admin: Advanced Filter UI */}
-        {!isInstructor && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    placeholder="Search by title or module..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <select
-                  value={filterFaculty}
-                  onChange={(e) => {
-                    setFilterFaculty(e.target.value);
-                    setFilterDepartment('all');
-                    setFilterProgram('all');
-                    setFilterModule('all');
-                  }}
-                  className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="all">All Faculties</option>
-                  {filterFaculties.map(f => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-                <select
-                  value={filterDepartment}
-                  onChange={(e) => {
-                    setFilterDepartment(e.target.value);
-                    setFilterProgram('all');
-                    setFilterModule('all');
-                  }}
-                  className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  disabled={filterFaculty === 'all'}
-                >
-                  <option value="all">All Departments</option>
-                  {filterDepartments.map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Published</p>
+                <p className="text-2xl font-bold text-green-600 mt-1">
+                  {assignments.filter(a => a.isPublished).length}
+                </p>
               </div>
-              <div className="flex flex-col md:flex-row gap-4">
-                <select
-                  value={filterProgram}
-                  onChange={(e) => {
-                    setFilterProgram(e.target.value);
-                    setFilterModule('all');
-                  }}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  disabled={filterDepartment === 'all'}
-                >
-                  <option value="all">All Programs</option>
-                  {filterPrograms.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-                <select
-                  value={filterModule}
-                  onChange={(e) => setFilterModule(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  disabled={filterProgram === 'all'}
-                >
-                  <option value="all">All Modules</option>
-                  {filterModules.map(m => (
-                    <option key={m.id} value={m.id}>{m.module_code} - {m.module_name}</option>
-                  ))}
-                </select>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
-                </select>
-                <button
-                  onClick={resetFilters}
-                  className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
-                  title="Reset all filters"
-                >
-                  <X size={20} />
-                  Reset
-                </button>
-              </div>
+              <Eye className="h-8 w-8 text-green-600" />
             </div>
           </div>
-        )}
-
-        {/* Assignments List */}
-        <div className="space-y-4">
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
-              <p className="mt-4 text-gray-600">Loading assignments...</p>
-            </div>
-          ) : isInstructor && filterModule === 'all' ? (
-            <div className="text-center py-16 bg-white rounded-lg shadow">
-              <BookOpen className="mx-auto text-gray-400 mb-4" size={64} />
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">Select a Module</h3>
-              <p className="text-gray-600">Please select a module card above to view its assignments</p>
-            </div>
-          ) : filteredAssignments.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <BookOpen className="mx-auto text-gray-400" size={48} />
-              <p className="mt-4 text-gray-600">
-                {isInstructor 
-                  ? 'No assignments found for this module.'
-                  : (assignments.length > 0 ? 'No assignments found. Try adjusting your filters.' : 'Create your first assignment!')
-                }
-              </p>
-            </div>
-          ) : (
-            filteredAssignments.map((assignment) => (
-              <div
-                key={assignment.id}
-                className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold text-gray-900">{assignment.title}</h3>
-                      <span
-                        className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                          assignment.is_published
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {assignment.is_published ? 'Published' : 'Draft'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3">{assignment.description}</p>
-                    <div className="flex items-center gap-6 text-sm text-gray-500">
-                      <span className="font-medium">
-                        Module: {assignment.modules?.module_code} - {assignment.modules?.module_name}
-                      </span>
-                      <span>Intake: {assignment.intakes?.intake_name}</span>
-                      <span>Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
-                      <span>Max Marks: {assignment.max_marks}</span>
-                    </div>
-                    {assignment.assignment_file_url && (
-                      <div className="mt-3">
-                        <a
-                          href={assignment.assignment_file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          <File size={16} />
-                          Download Assignment File
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors">
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleTogglePublish(assignment.id, assignment.is_published)}
-                      className={`${
-                        assignment.is_published
-                          ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
-                          : 'bg-green-100 text-green-600 hover:bg-green-200'
-                      } p-2 rounded-lg transition-colors`}
-                      title={assignment.is_published ? 'Unpublish' : 'Publish'}
-                    >
-                      {assignment.is_published ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteAssignment(assignment.id)}
-                      className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Draft</p>
+                <p className="text-2xl font-bold text-gray-600 mt-1">
+                  {assignments.filter(a => !a.isPublished).length}
+                </p>
               </div>
-            ))
-          )}
+              <EyeOff className="h-8 w-8 text-gray-600" />
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Due Soon</p>
+                <p className="text-2xl font-bold text-orange-600 mt-1">
+                  {assignments.filter(a => {
+                    const daysUntilDue = Math.ceil((new Date(a.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    return daysUntilDue <= 7 && daysUntilDue >= 0;
+                  }).length}
+                </p>
+              </div>
+              <File className="h-8 w-8 text-orange-600" />
+            </div>
+          </div>
         </div>
 
-        {/* Create Assignment Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Assignment</h2>
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <input
+              type="text"
+              placeholder="Search assignments..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(0);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent lg:col-span-2"
+            />
+            <select
+              value={filterFaculty}
+              onChange={(e) => {
+                setFilterFaculty(e.target.value);
+                setFilterDepartment('all');
+                setFilterProgram('all');
+                setFilterModule('all');
+                setCurrentPage(0);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">All Faculties</option>
+              {filterFaculties.map(f => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+            <select
+              value={filterDepartment}
+              onChange={(e) => {
+                setFilterDepartment(e.target.value);
+                setFilterProgram('all');
+                setFilterModule('all');
+                setCurrentPage(0);
+              }}
+              disabled={filterFaculty === 'all'}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+            >
+              <option value="all">All Departments</option>
+              {filterDepartments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+            <select
+              value={filterProgram}
+              onChange={(e) => {
+                setFilterProgram(e.target.value);
+                setFilterModule('all');
+                setCurrentPage(0);
+              }}
+              disabled={filterDepartment === 'all'}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+            >
+              <option value="all">All Programs</option>
+              {filterPrograms.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <select
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(0);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">All Status</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Reset Filters
+            </button>
+          </div>
+        </div>
 
-                {/* Instructor: Module Card Selection */}
-                {isInstructor && !selectedModuleCard && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Select Module</h3>
-                    <p className="text-sm text-gray-600 mb-4">Choose one of your assigned modules to create an assignment</p>
-                    <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
-                      {instructorModules.map((module) => (
-                        <button
-                          key={module.id}
-                          onClick={() => {
-                            setSelectedModuleCard(module.id);
-                            setSelectedModule(module.id);
-                            setSelectedProgram(module.program_id);
-                            setSelectedIntake(module.intake_id);
-                          }}
-                          className="text-left p-4 border-2 border-gray-300 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all"
-                        >
-                          <div className="font-semibold text-gray-900">{module.module_code}</div>
-                          <div className="text-sm text-gray-600">{module.module_name}</div>
-                        </button>
-                      ))}
+        {/* Assignments Grid */}
+        {assignments.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No assignments found</h3>
+            <p className="text-gray-600">
+              {searchTerm || filterFaculty !== 'all' ? 'Try adjusting your filters' : 'Create your first assignment to get started'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {assignments.map((assignment) => (
+                <div key={assignment.id} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{assignment.title}</h3>
+                      <p className="text-sm text-gray-600">
+                        {assignment.moduleCode} - {assignment.moduleName}
+                      </p>
                     </div>
-                    <div className="flex gap-3 mt-6">
-                      <button
-                        onClick={resetForm}
-                        className="flex-1 px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      assignment.isPublished ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {assignment.isPublished ? 'Published' : 'Draft'}
+                    </span>
+                  </div>
+                  
+                  {assignment.description && (
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{assignment.description}</p>
+                  )}
+                  
+                  <div className="space-y-2 mb-4 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Due Date:</span>
+                      <span className="font-medium">{new Date(assignment.dueDate).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Max Marks:</span>
+                      <span className="font-medium">{assignment.maxMarks}</span>
+                    </div>
+                    
+                    {/* Attachment Section - Always show for debugging */}
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      {assignment.attachmentName && assignment.attachmentUrl ? (
+                        <div className="flex items-center justify-between bg-blue-50 rounded-lg p-2">
+                          <div className="flex items-center text-blue-700 flex-1 min-w-0">
+                            <File className="h-4 w-4 mr-2 flex-shrink-0" />
+                            <span className="text-xs truncate">{assignment.attachmentName}</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              console.log('Preview clicked:', assignment.attachmentUrl, assignment.attachmentName);
+                              handlePreviewFile(assignment.attachmentUrl!, assignment.attachmentName!);
+                            }}
+                            className="ml-2 px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors flex-shrink-0"
+                          >
+                            {assignment.attachmentName.toLowerCase().endsWith('.pdf') ? '📥 Download' : '👁️ Preview'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-400 italic">
+                          No attachment uploaded
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
+                  
+                  <div className="flex gap-2 pt-4 border-t border-gray-100">
+                    <button
+                      onClick={() => openEditModal(assignment)}
+                      className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Edit size={16} />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => handleTogglePublish(assignment)}
+                      className={`flex-1 px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                        assignment.isPublished
+                          ? 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                          : 'bg-green-50 text-green-600 hover:bg-green-100'
+                      }`}
+                    >
+                      {assignment.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
+                      <span>{assignment.isPublished ? 'Unpublish' : 'Publish'}</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAssignment(assignment)}
+                      className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-                {/* Admin OR Instructor after module selection: Show steps or details form */}
-                {(!isInstructor || selectedModuleCard) && (
-                  <>
-                    {/* Step Indicator - Only for Admin */}
-                    {!isInstructor && (
-                      <div className="flex items-center justify-between mb-8">
-                        {[1, 2, 3, 4, 5, 6].map((s) => (
-                          <div key={s} className="flex items-center">
-                            <div
-                              className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                                step >= s ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-                              }`}
-                            >
-                              {s}
-                            </div>
-                            {s < 6 && <div className={`w-8 h-1 ${step > s ? 'bg-blue-600' : 'bg-gray-200'}`}></div>}
-                          </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 0}
+                  className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <span className="px-4 py-2 text-gray-700">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages - 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Create/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {editingAssignment ? 'Edit Assignment' : 'Create Assignment'}
+                </h2>
+                <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              {!editingAssignment && (
+                <div className="mt-4 flex items-center justify-between">
+                  {[1, 2, 3].map((s) => (
+                    <div key={s} className="flex items-center flex-1">
+                      <div className="flex items-center flex-1">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+                          step >= s ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                        }`}>
+                          {s}
+                        </div>
+                        <div className="ml-2 text-sm font-medium text-gray-700">
+                          {s === 1 && 'Intake'}
+                          {s === 2 && 'Module'}
+                          {s === 3 && 'Details'}
+                        </div>
+                      </div>
+                      {s < 3 && <div className={`flex-1 h-1 mx-4 ${step > s ? 'bg-blue-600' : 'bg-gray-200'}`} />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6">
+              {/* Step 1: Intake Selection */}
+              {!editingAssignment && step === 1 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold mb-4">Step 1: Select Intake</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Choose the intake for this assignment. Program and faculty information will be shown.
+                  </p>
+                  {intakes.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>Loading intakes...</p>
+                      <p className="text-sm mt-2">If no intakes appear, please create intakes in Intake Management first.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Intake *</label>
+                      <select
+                        value={selectedIntake}
+                        onChange={(e) => {
+                          setSelectedIntake(e.target.value);
+                          setSelectedModule('');
+                        }}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="">Select Intake</option>
+                        {intakes.map(i => (
+                          <option key={i.id} value={i.id}>{i.name}</option>
                         ))}
-                      </div>
-                    )}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
 
-                    {/* Step 1: Faculty - Admin Only */}
-                    {!isInstructor && step === 1 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 1: Select Faculty</h3>
-                    <select
-                      value={selectedFaculty}
-                      onChange={(e) => setSelectedFaculty(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">-- Select Faculty --</option>
-                      {faculties.map((faculty) => (
-                        <option key={faculty.id} value={faculty.id}>
-                          {faculty.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                    {/* Step 2: Department - Admin Only */}
-                    {!isInstructor && step === 2 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 2: Select Department</h3>
-                    <select
-                      value={selectedDepartment}
-                      onChange={(e) => setSelectedDepartment(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">-- Select Department --</option>
-                      {departments.map((dept) => (
-                        <option key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                    {/* Step 3: Program - Admin Only */}
-                    {!isInstructor && step === 3 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 3: Select Program</h3>
-                    <select
-                      value={selectedProgram}
-                      onChange={(e) => setSelectedProgram(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">-- Select Program --</option>
-                      {programs.map((program) => (
-                        <option key={program.id} value={program.id}>
-                          {program.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                    {/* Step 4: Intake - Admin Only */}
-                    {!isInstructor && step === 4 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 4: Select Intake</h3>
-                    <select
-                      value={selectedIntake}
-                      onChange={(e) => setSelectedIntake(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">-- Select Intake --</option>
-                      {intakes.map((intake) => (
-                        <option key={intake.id} value={intake.id}>
-                          {intake.intake_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                    {/* Step 5: Module - Admin Only */}
-                    {!isInstructor && step === 5 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 5: Select Module</h3>
-                    <select
-                      value={selectedModule}
-                      onChange={(e) => setSelectedModule(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">-- Select Module --</option>
-                      {modules.map((module) => (
-                        <option key={module.id} value={module.id}>
-                          {module.module_code} - {module.module_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                    {/* Step 6 OR Instructor: Assignment Details */}
-                    {((isInstructor && selectedModuleCard) || (!isInstructor && step === 6)) && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 6: Assignment Details</h3>
+              {/* Step 2: Module Selection */}
+              {!editingAssignment && step === 2 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold mb-4">Step 2: Select Module</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Select the module for which you want to create this assignment.
+                  </p>
+                  {modules.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No modules assigned to this intake yet.</p>
+                      <p className="text-sm mt-2">Please assign modules to the intake first in Intake Management.</p>
+                    </div>
+                  ) : (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Assignment Title <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={assignmentTitle}
-                        onChange={(e) => setAssignmentTitle(e.target.value)}
-                        placeholder="e.g., Programming Assignment 1"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                      <textarea
-                        value={assignmentDescription}
-                        onChange={(e) => setAssignmentDescription(e.target.value)}
-                        placeholder="Assignment description and instructions..."
-                        rows={4}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Due Date <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="date"
-                          value={dueDate}
-                          onChange={(e) => setDueDate(e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Max Marks</label>
-                        <input
-                          type="number"
-                          value={maxMarks}
-                          onChange={(e) => setMaxMarks(parseInt(e.target.value))}
-                          min="1"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Assignment File</label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
-                        {!assignmentFile ? (
-                          <div>
-                            <input
-                              type="file"
-                              id="assignment-file"
-                              onChange={handleFileChange}
-                              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.mp3,.wav,.m4a,.ogg,.mp4,.avi,.mov,.wmv,.webm"
-                              className="hidden"
-                              disabled={uploading}
-                            />
-                            <label htmlFor="assignment-file" className="cursor-pointer">
-                              <UploadIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                              <p className="text-sm text-gray-600 mb-1">
-                                Click to upload or drag and drop
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                PDF, Word, Excel, PowerPoint, ZIP, Audio, or Video (Max 50MB)
-                              </p>
-                            </label>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <File className="w-8 h-8 text-blue-600" />
-                              <div className="text-left">
-                                <p className="text-sm font-medium text-gray-900">{assignmentFile.name}</p>
-                                <p className="text-xs text-gray-500">
-                                  {(assignmentFile.size / 1024 / 1024).toFixed(2)} MB
-                                </p>
-                              </div>
-                            </div>
-                            {uploading ? (
-                              <Loader className="w-5 h-5 text-blue-600 animate-spin" />
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setAssignmentFile(null);
-                                  setAssignmentFileUrl('');
-                                }}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <X className="w-5 h-5" />
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {assignmentFileUrl && !uploading && (
-                        <p className="text-xs text-green-600 mt-2">✓ File uploaded successfully</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                    {/* Modal Actions */}
-                    <div className="flex gap-3 mt-8">
-                      {!isInstructor && step > 1 && (
-                        <button
-                          onClick={() => setStep(step - 1)}
-                          className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          Previous
-                        </button>
-                      )}
-                      {isInstructor && selectedModuleCard && (
-                        <button
-                          onClick={() => setSelectedModuleCard('')}
-                          className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          Back to Modules
-                        </button>
-                      )}
-                      <button
-                        onClick={resetForm}
-                        className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Module *</label>
+                      <select
+                        value={selectedModule}
+                        onChange={(e) => setSelectedModule(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        required
                       >
-                        Cancel
-                      </button>
-                      {!isInstructor && step < 6 ? (
-                        <button
-                          onClick={() => setStep(step + 1)}
-                          disabled={
-                            (step === 1 && !selectedFaculty) ||
-                            (step === 2 && !selectedDepartment) ||
-                            (step === 3 && !selectedProgram) ||
-                            (step === 4 && !selectedIntake) ||
-                            (step === 5 && !selectedModule)
-                          }
-                          className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                          Next
-                        </button>
-                      ) : (isInstructor && selectedModuleCard) || (!isInstructor && step === 6) ? (
-                        <button
-                          onClick={handleCreateAssignment}
-                          className="flex-1 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                          Create Assignment
-                        </button>
-                      ) : null}
+                        <option value="">Select Module</option>
+                        {modules.map(m => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
                     </div>
-                  </>
+                  )}
+                </div>
+              )}
+
+              {/* Step 3: Assignment Details */}
+              {(editingAssignment || step === 3) && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold mb-4">
+                    {editingAssignment ? 'Edit Assignment Details' : 'Step 4: Assignment Details'}
+                  </h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+                    <input
+                      type="text"
+                      value={assignmentTitle}
+                      onChange={(e) => setAssignmentTitle(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea
+                      value={assignmentDescription}
+                      onChange={(e) => setAssignmentDescription(e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Due Date *</label>
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Marks *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={maxMarks}
+                        onChange={(e) => setMaxMarks(Number(e.target.value))}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Assignment File (Optional)</label>
+                    {uploading ? (
+                      <div className="mb-2 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center">
+                        <Loader className="h-5 w-5 text-blue-600 mr-2 animate-spin" />
+                        <span className="text-sm text-blue-700">Uploading file...</span>
+                      </div>
+                    ) : assignmentFileUrl ? (
+                      <div className="mb-2 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                        <div className="flex items-center">
+                          <File className="h-5 w-5 text-green-600 mr-2" />
+                          <span className="text-sm text-green-700">✅ {assignmentFile?.name || 'File uploaded successfully'}</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setAssignmentFileUrl('');
+                            setAssignmentFile(null);
+                          }}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : null}
+                    <input
+                      type="file"
+                      onChange={handleFileSelect}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
+                      disabled={uploading}
+                    />
+                    <p className="mt-1 text-xs text-gray-500">File will be uploaded automatically after selection</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+              <div>
+                {!editingAssignment && step > 1 && (
+                  <button
+                    onClick={() => setStep(step - 1)}
+                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Previous
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={resetForm}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                {!editingAssignment && step < 3 ? (
+                  <button
+                    onClick={() => {
+                      if (step === 1 && !selectedIntake) {
+                        alert('Please select an Intake');
+                        return;
+                      }
+                      if (step === 2 && !selectedModule) {
+                        alert('Please select a Module');
+                        return;
+                      }
+                      setStep(step + 1);
+                    }}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    onClick={editingAssignment ? handleUpdateAssignment : handleCreateAssignment}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    {editingAssignment ? 'Update Assignment' : 'Create Assignment'}
+                  </button>
                 )}
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Notification Modal */}
+      {showNotification && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-scale-in">
+            <div className={`p-6 rounded-t-lg ${
+              notificationConfig.type === 'success' ? 'bg-gradient-to-r from-green-500 to-emerald-600' :
+              notificationConfig.type === 'error' ? 'bg-gradient-to-r from-red-500 to-pink-600' :
+              notificationConfig.type === 'warning' ? 'bg-gradient-to-r from-amber-500 to-orange-600' :
+              'bg-gradient-to-r from-blue-500 to-cyan-600'
+            }`}>
+              <div className="flex items-center gap-3 text-white">
+                <span className="text-3xl">
+                  {notificationConfig.type === 'success' && '🎉'}
+                  {notificationConfig.type === 'error' && '❌'}
+                  {notificationConfig.type === 'warning' && '⚠️'}
+                  {notificationConfig.type === 'info' && 'ℹ️'}
+                </span>
+                <h3 className="text-xl font-bold">{notificationConfig.title}</h3>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-4 whitespace-pre-line">{notificationConfig.message}</p>
+              {notificationConfig.details && notificationConfig.details.length > 0 && (
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 mb-4">
+                  {notificationConfig.details.map((detail, index) => (
+                    <li key={index}>{detail}</li>
+                  ))}
+                </ul>
+              )}
+              <button
+                onClick={() => setShowNotification(false)}
+                className={`w-full py-2 px-4 rounded-lg font-semibold text-white transition-colors ${
+                  notificationConfig.type === 'success' ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' :
+                  notificationConfig.type === 'error' ? 'bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700' :
+                  notificationConfig.type === 'warning' ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' :
+                  'bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700'
+                }`}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full animate-scale-in">
+            <div className={`p-6 rounded-t-lg ${
+              confirmationConfig.type === 'danger' 
+                ? 'bg-gradient-to-r from-red-500 to-pink-600' 
+                : 'bg-gradient-to-r from-amber-500 to-orange-600'
+            }`}>
+              <div className="flex items-center gap-3 text-white">
+                <span className="text-3xl">
+                  {confirmationConfig.type === 'danger' ? '🗑️' : '⚠️'}
+                </span>
+                <h3 className="text-xl font-bold">{confirmationConfig.title}</h3>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-6 whitespace-pre-line">{confirmationConfig.message}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirmation(false)}
+                  className="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmationConfig.onConfirm}
+                  className={`flex-1 py-2 px-4 font-semibold text-white rounded-lg transition-colors ${
+                    confirmationConfig.type === 'danger'
+                      ? 'bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700'
+                      : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700'
+                  }`}
+                >
+                  {confirmationConfig.confirmText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Preview Modal */}
+      {showFilePreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">{previewFileName}</h3>
+              <button
+                onClick={() => setShowFilePreview(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-4 overflow-auto max-h-[calc(90vh-80px)]">
+              <img
+                src={previewFileUrl}
+                alt={previewFileName}
+                className="max-w-full h-auto mx-auto"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

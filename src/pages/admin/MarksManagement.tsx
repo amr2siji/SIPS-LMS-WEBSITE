@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, CheckCircle, Clock, Settings } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { ArrowLeft, FileText, CheckCircle, Clock, Settings, Download, Eye, X, Check } from 'lucide-react';
+import { adminService } from '../../services/adminService';
 
 interface AssignmentSubmission {
   id: string;
@@ -9,7 +9,10 @@ interface AssignmentSubmission {
   student_id: string;
   marks_obtained: number | null;
   status: string;
-  submitted_at: string;
+  submitted_at: string | any[]; // Can be ISO string or array from backend
+  submission_url?: string;
+  submission_name?: string;
+  feedback?: string;
   assignments?: {
     title: string;
     max_marks: number;
@@ -18,6 +21,10 @@ interface AssignmentSubmission {
     full_name: string;
     email: string;
   };
+  moduleCode?: string;
+  moduleName?: string;
+  departmentName?: string;
+  programName?: string;
 }
 
 interface ExamSubmission {
@@ -35,6 +42,10 @@ interface ExamSubmission {
     full_name: string;
     email: string;
   };
+  moduleCode?: string;
+  moduleName?: string;
+  departmentName?: string;
+  programName?: string;
 }
 
 interface OverallScore {
@@ -46,6 +57,7 @@ interface OverallScore {
   overall_score: number | null;
   grade: string | null;
   is_finalized: boolean;
+  is_published?: boolean;
   profiles?: {
     full_name: string;
     email: string;
@@ -54,15 +66,22 @@ interface OverallScore {
     module_code: string;
     module_name: string;
   };
+  departmentName?: string;
+  programName?: string;
 }
 
 interface ScoreWeight {
   id: string;
-  module_id: string;
-  intake_id: string;
+  module_id: string | number;
+  intake_id: string | number;
   assignments_weight: number;
   exams_weight: number;
   is_published: boolean;
+  // Optional fields from backend that include display info
+  moduleCode?: string;
+  moduleName?: string;
+  intakeName?: string;
+  intakeYear?: number;
 }
 
 export function MarksManagement() {
@@ -77,6 +96,7 @@ export function MarksManagement() {
   const [loading, setLoading] = useState(true);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [showSetMarksModal, setShowSetMarksModal] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const [selectedScore, setSelectedScore] = useState<OverallScore | null>(null);
   const [overallMarksInput, setOverallMarksInput] = useState('');
   const [assignmentWeight, setAssignmentWeight] = useState(40);
@@ -85,11 +105,13 @@ export function MarksManagement() {
   // Module and Intake selection
   const [modules, setModules] = useState<any[]>([]);
   const [intakes, setIntakes] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [programs, setPrograms] = useState<any[]>([]);
-  const [faculties, setFaculties] = useState<any[]>([]);
   const [selectedModuleId, setSelectedModuleId] = useState('');
   const [selectedIntakeId, setSelectedIntakeId] = useState('');
+
+  // Publish modal state
+  const [publishModuleId, setPublishModuleId] = useState('');
+  const [publishIntakeId, setPublishIntakeId] = useState('');
+  const [publishAction, setPublishAction] = useState<'publish' | 'unpublish'>('publish');
 
   // Filter states for Assignment Marks
   const [assignmentSearchTerm, setAssignmentSearchTerm] = useState('');
@@ -97,8 +119,7 @@ export function MarksManagement() {
   const [assignmentTitleFilter, setAssignmentTitleFilter] = useState('all');
   const [assignmentScoreRangeFilter, setAssignmentScoreRangeFilter] = useState('all'); // all, 90-100, 80-89, 70-79, 60-69, below-60
   const [assignmentModuleFilter, setAssignmentModuleFilter] = useState('all');
-  const [assignmentDepartmentFilter, setAssignmentDepartmentFilter] = useState('all');
-  const [assignmentProgramFilter, setAssignmentProgramFilter] = useState('all');
+  const [assignmentIntakeFilter, setAssignmentIntakeFilter] = useState('all');
 
   // Filter states for Exam Marks
   const [examSearchTerm, setExamSearchTerm] = useState('');
@@ -106,22 +127,180 @@ export function MarksManagement() {
   const [examNameFilter, setExamNameFilter] = useState('all');
   const [examScoreRangeFilter, setExamScoreRangeFilter] = useState('all'); // all, 90-100, 80-89, 70-79, 60-69, below-60
   const [examModuleFilter, setExamModuleFilter] = useState('all');
-  const [examDepartmentFilter, setExamDepartmentFilter] = useState('all');
-  const [examProgramFilter, setExamProgramFilter] = useState('all');
+  const [examIntakeFilter, setExamIntakeFilter] = useState('all');
 
   // Filter states for Overall Scores
   const [overallSearchTerm, setOverallSearchTerm] = useState('');
   const [overallModuleFilter, setOverallModuleFilter] = useState('all');
+  const [overallIntakeFilter, setOverallIntakeFilter] = useState('all');
   const [overallGradeFilter, setOverallGradeFilter] = useState('all'); // all, A+, A, A-, B+, B, C, F
   const [overallStatusFilter, setOverallStatusFilter] = useState('all'); // all, finalized, draft
   const [overallScoreRangeFilter, setOverallScoreRangeFilter] = useState('all'); // all, 90-100, 80-89, 70-79, 60-69, below-60
-  const [overallDepartmentFilter, setOverallDepartmentFilter] = useState('all');
-  const [overallProgramFilter, setOverallProgramFilter] = useState('all');
+
+  // Notification state
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  }>({
+    show: false,
+    type: 'success',
+    title: '',
+    message: ''
+  });
+
+  // Grading modal state
+  const [showGradeModal, setShowGradeModal] = useState(false);
+  const [gradeModalData, setGradeModalData] = useState<{
+    submissionId: string;
+    studentName: string;
+    examName: string;
+    maxMarks: number;
+  } | null>(null);
+  const [gradeScore, setGradeScore] = useState('');
+  const [gradeFeedback, setGradeFeedback] = useState('');
+
+  // Assignment grading modal state
+  const [showAssignmentGradeModal, setShowAssignmentGradeModal] = useState(false);
+  const [assignmentGradeModalData, setAssignmentGradeModalData] = useState<{
+    submissionId: string;
+    studentName: string;
+    assignmentTitle: string;
+    maxMarks: number;
+    submissionUrl?: string;
+    submissionName?: string;
+  } | null>(null);
+  const [assignmentGradeMarks, setAssignmentGradeMarks] = useState('');
+  const [assignmentGradeFeedback, setAssignmentGradeFeedback] = useState('');
+
+  // Notification helper function
+  const showNotification = (type: 'success' | 'error', title: string, message: string) => {
+    setNotification({ show: true, type, title, message });
+    setTimeout(() => setNotification({ show: false, type: 'success', title: '', message: '' }), 4000);
+  };
+
+  // Handle viewing assignment file with authentication
+  const handleViewAssignmentFile = async (fileUrl: string, fileName: string) => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+        showNotification('error', 'Authentication Error', 'Please login again to view files');
+        return;
+      }
+
+      // Fetch file with authentication header
+      const response = await fetch(`${API_BASE_URL}${fileUrl}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load file');
+      }
+
+      // Create blob URL and open in new tab
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      // Open in new window
+      const newWindow = window.open(blobUrl, '_blank');
+      
+      // Clean up blob URL after window loads (or after 1 minute as fallback)
+      if (newWindow) {
+        newWindow.addEventListener('load', () => {
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        });
+      } else {
+        // Fallback: download if popup blocked
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName || 'assignment-file';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      }
+    } catch (error: any) {
+      console.error('Error viewing file:', error);
+      showNotification('error', 'Error', 'Failed to load file. Please try again.');
+    }
+  };
+
+  // Helper function to parse date array from backend
+  const parseDateArray = (dateArray: any): string => {
+    if (!dateArray) return 'N/A';
+    
+    // Check if it's already a string
+    if (typeof dateArray === 'string') {
+      try {
+        return new Date(dateArray).toLocaleString();
+      } catch {
+        return 'Invalid Date';
+      }
+    }
+    
+    // Check if it's an array (LocalDateTime from backend)
+    if (Array.isArray(dateArray) && dateArray.length >= 3) {
+      try {
+        // Array format: [year, month, day, hour, minute, second, nanosecond]
+        const [year, month, day, hour = 0, minute = 0, second = 0] = dateArray;
+        // Note: JavaScript months are 0-indexed, but backend sends 1-indexed
+        const date = new Date(year, month - 1, day, hour, minute, second);
+        return date.toLocaleString();
+      } catch {
+        return 'Invalid Date';
+      }
+    }
+    
+    return 'Invalid Date';
+  };
 
   // Filter states for Module-Wide Score Weight Configuration
   const [weightModuleFilter, setWeightModuleFilter] = useState('all');
   const [weightIntakeFilter, setWeightIntakeFilter] = useState('all');
   const [weightPublishedFilter, setWeightPublishedFilter] = useState('all'); // all, published, draft
+
+  // Modules for selected intake (in weight configuration modal)
+  const [intakeModules, setIntakeModules] = useState<any[]>([]);
+  
+  // All modules assigned to any intake (for weight cards display)
+  const [modulesAssignedToIntakes, setModulesAssignedToIntakes] = useState<any[]>([]);
+
+  // Helper function to extract unique modules from submissions data
+  const extractModulesFromSubmissions = (submissions: any[]) => {
+    const modulesMap = new Map();
+    
+    submissions.forEach((sub: any) => {
+      // Handle both submission format and overall score format
+      const moduleId = sub.module_id || sub.moduleId;
+      const moduleCode = sub.moduleCode || sub.modules?.module_code;
+      const moduleName = sub.moduleName || sub.modules?.module_name;
+      
+      if (moduleCode && moduleName) {
+        // Use moduleCode as the unique key, but store the numeric ID if available
+        if (!modulesMap.has(moduleCode)) {
+          modulesMap.set(moduleCode, {
+            id: moduleId || moduleCode, // Use numeric ID if available, otherwise moduleCode
+            moduleCode: moduleCode,
+            moduleName: moduleName,
+            module_code: moduleCode, // For backward compatibility
+            module_name: moduleName  // For backward compatibility
+          });
+        }
+      }
+    });
+    
+    const extractedModules = Array.from(modulesMap.values());
+    console.log('Extracted modules from data:', extractedModules);
+    
+    if (extractedModules.length > 0) {
+      setModules(extractedModules);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -130,101 +309,61 @@ export function MarksManagement() {
 
   const loadModulesAndIntakes = async () => {
     try {
-      // Load faculties
-      const { data: facultiesData, error: facultiesError } = await supabase
-        .from('faculties')
-        .select('*')
-        .order('name');
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      if (!facultiesError && facultiesData && facultiesData.length > 0) {
-        setFaculties(facultiesData);
-      } else {
-        const dummyFaculties = [
-          { id: 'faculty-1', name: 'Faculty of Computing' },
-          { id: 'faculty-2', name: 'Faculty of Engineering' },
-          { id: 'faculty-3', name: 'Faculty of Business' }
-        ];
-        setFaculties(dummyFaculties);
+      if (!token) {
+        console.error('No authentication token found');
+        return;
       }
 
-      // Load departments
-      const { data: departmentsData, error: departmentsError } = await supabase
-        .from('departments')
-        .select('*')
-        .order('name');
+      // Load modules from real API
+      try {
+        console.log('Fetching modules from:', `${API_BASE_URL}/api/admin/modules?size=1000`);
+        const modulesResponse = await fetch(`${API_BASE_URL}/api/admin/modules?size=1000`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      if (!departmentsError && departmentsData && departmentsData.length > 0) {
-        setDepartments(departmentsData);
-      } else {
-        const dummyDepartments = [
-          { id: 'dept-1', name: 'Computer Science', faculty_id: 'faculty-1' },
-          { id: 'dept-2', name: 'Software Engineering', faculty_id: 'faculty-1' },
-          { id: 'dept-3', name: 'Information Technology', faculty_id: 'faculty-1' },
-          { id: 'dept-4', name: 'Civil Engineering', faculty_id: 'faculty-2' },
-          { id: 'dept-5', name: 'Business Management', faculty_id: 'faculty-3' }
-        ];
-        setDepartments(dummyDepartments);
+        console.log('Modules response status:', modulesResponse.status);
+        
+        if (modulesResponse.ok) {
+          const modulesResult = await modulesResponse.json();
+          console.log('Modules API response:', modulesResult);
+          // Handle paginated response - extract content array from Page object
+          const modulesData = modulesResult.data?.content || modulesResult.data || [];
+          console.log('Modules data array:', modulesData);
+          setModules(modulesData);
+          
+          console.log('Loaded modules:', modulesData.length);
+        } else {
+          console.error('Failed to load modules, status:', modulesResponse.status);
+          const errorText = await modulesResponse.text();
+          console.error('Error response:', errorText);
+        }
+      } catch (error) {
+        console.error('Error loading modules:', error);
       }
 
-      // Load programs
-      const { data: programsData, error: programsError } = await supabase
-        .from('programs')
-        .select('*')
-        .order('name');
+      // Load intakes from real API
+      try {
+        const intakesResponse = await fetch(`${API_BASE_URL}/api/admin/intakes`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      if (!programsError && programsData && programsData.length > 0) {
-        setPrograms(programsData);
-      } else {
-        const dummyPrograms = [
-          { id: 'prog-1', name: 'BSc in Computer Science', department_id: 'dept-1' },
-          { id: 'prog-2', name: 'BSc in Software Engineering', department_id: 'dept-2' },
-          { id: 'prog-3', name: 'BSc in Information Technology', department_id: 'dept-3' },
-          { id: 'prog-4', name: 'BEng in Civil Engineering', department_id: 'dept-4' },
-          { id: 'prog-5', name: 'BBA in Business Management', department_id: 'dept-5' }
-        ];
-        setPrograms(dummyPrograms);
-      }
-
-      // Load modules
-      const { data: modulesData, error: modulesError } = await supabase
-        .from('modules')
-        .select('*')
-        .order('module_code');
-
-      if (modulesError) throw modulesError;
-      
-      // If no modules from database, use dummy data
-      if (!modulesData || modulesData.length === 0) {
-        const dummyModules = [
-          { id: 'module-1', module_code: 'CS401', module_name: 'Advanced Database Systems', department_id: 'dept-1' },
-          { id: 'module-2', module_code: 'CS402', module_name: 'Software Engineering Principles', department_id: 'dept-2' },
-          { id: 'module-3', module_code: 'CS403', module_name: 'Machine Learning Fundamentals', department_id: 'dept-1' },
-          { id: 'module-4', module_code: 'CS404', module_name: 'Web Technologies & Applications', department_id: 'dept-3' },
-          { id: 'module-5', module_code: 'CS405', module_name: 'Data Structures & Algorithms', department_id: 'dept-1' }
-        ];
-        setModules(dummyModules);
-      } else {
-        setModules(modulesData || []);
-      }
-
-      // Load intakes
-      const { data: intakesData, error: intakesError } = await supabase
-        .from('intakes')
-        .select('*')
-        .order('intake_year', { ascending: false });
-
-      if (intakesError) throw intakesError;
-      
-      // If no intakes from database, use dummy data
-      if (!intakesData || intakesData.length === 0) {
-        const dummyIntakes = [
-          { id: 'intake-1', intake_name: 'Semester 1', intake_year: 2024, intake_month: 1 },
-          { id: 'intake-2', intake_name: 'Semester 2', intake_year: 2024, intake_month: 7 },
-          { id: 'intake-3', intake_name: 'Semester 1', intake_year: 2025, intake_month: 1 }
-        ];
-        setIntakes(dummyIntakes);
-      } else {
-        setIntakes(intakesData || []);
+        if (intakesResponse.ok) {
+          const intakesResult = await intakesResponse.json();
+          const intakesData = intakesResult.data || [];
+          console.log('Loaded intakes:', intakesData);
+          setIntakes(intakesData);
+        }
+      } catch (error) {
+        console.error('Error loading intakes:', error);
       }
     } catch (error) {
       console.error('Error loading modules and intakes:', error);
@@ -241,6 +380,7 @@ export function MarksManagement() {
       } else {
         await loadOverallScores();
         await loadScoreWeights();
+        await loadModulesAssignedToIntakes(); // Load modules assigned to intakes for weight cards
       }
     } finally {
       setLoading(false);
@@ -249,17 +389,88 @@ export function MarksManagement() {
 
   const loadAssignmentSubmissions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('assignment_submissions')
-        .select(`
-          *,
-          assignments (title, max_marks),
-          profiles (full_name, email)
-        `)
-        .order('submitted_at', { ascending: false });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      // If error or no data from database, use dummy data for testing
-      if (error || !data || data.length === 0) {
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (selectedModuleId && selectedModuleId !== 'all') {
+        params.append('moduleId', selectedModuleId);
+      }
+      if (selectedIntakeId && selectedIntakeId !== 'all') {
+        params.append('intakeId', selectedIntakeId);
+      }
+      if (assignmentStatusFilter && assignmentStatusFilter !== 'all') {
+        // Map frontend status to backend status
+        const statusMap: any = {
+          'pending': 'SUBMITTED',
+          'graded': 'GRADED'
+        };
+        params.append('status', statusMap[assignmentStatusFilter] || assignmentStatusFilter.toUpperCase());
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/marks/assignments?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load assignment submissions');
+      }
+
+      const result = await response.json();
+      const submissions = result.data || [];
+
+      // Transform backend response to match frontend interface
+      const transformedSubmissions = submissions.map((sub: any) => ({
+        id: sub.id.toString(),
+        assignment_id: sub.assignmentId?.toString() || '',
+        student_id: sub.studentNic || '',
+        marks_obtained: sub.marksObtained,
+        status: sub.status === 'SUBMITTED' ? 'pending' : (sub.status === 'GRADED' ? 'graded' : sub.status.toLowerCase()),
+        submitted_at: sub.submittedAt, // Keep original format for processing
+        submission_url: sub.submissionUrl,
+        submission_name: sub.submissionName,
+        feedback: sub.feedback,
+        assignments: {
+          title: sub.assignmentTitle || 'Unknown Assignment',
+          max_marks: sub.maxMarks || 100
+        },
+        profiles: {
+          full_name: sub.studentName || 'Unknown Student',
+          email: sub.studentEmail || ''
+        },
+        moduleCode: sub.moduleCode,
+        moduleName: sub.moduleName,
+        departmentName: sub.departmentName,
+        programName: sub.programName
+      }));
+
+      setAssignmentSubmissions(transformedSubmissions);
+      console.log('Loaded assignment submissions:', transformedSubmissions.length);
+      console.log('Sample submission:', transformedSubmissions[0]);
+      
+      // Extract unique modules from submissions since /api/admin/modules is failing
+      extractModulesFromSubmissions(transformedSubmissions);
+
+    } catch (error) {
+      console.error('Error loading assignment submissions:', error);
+      // Show empty array on error
+      setAssignmentSubmissions([]);
+    }
+  };
+
+  // Fallback to dummy data function (for development/testing)
+  const loadAssignmentSubmissionsDummy = async () => {
+    try {
+      if (true) {
         const dummyAssignments: AssignmentSubmission[] = [
           {
             id: 'asn-sub-1',
@@ -455,8 +666,6 @@ export function MarksManagement() {
           }
         ];
         setAssignmentSubmissions(dummyAssignments);
-      } else {
-        setAssignmentSubmissions(data || []);
       }
     } catch (error) {
       console.error('Error loading assignment submissions:', error);
@@ -661,17 +870,83 @@ export function MarksManagement() {
 
   const loadExamSubmissions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('exam_submissions')
-        .select(`
-          *,
-          exams (exam_name, max_marks),
-          profiles (full_name, email)
-        `)
-        .order('created_at', { ascending: false });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      // If error or no data from database, use dummy data for testing
-      if (error || !data || data.length === 0) {
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      // Build query parameters for exams-for-marking endpoint
+      const params = new URLSearchParams();
+      if (selectedModuleId && selectedModuleId !== 'all') {
+        params.append('moduleId', selectedModuleId);
+      }
+      if (selectedIntakeId && selectedIntakeId !== 'all') {
+        params.append('intakeId', selectedIntakeId);
+      }
+
+      // Use the new exams-for-marking endpoint that shows ALL students for published exams
+      const response = await fetch(`${API_BASE_URL}/api/admin/marks/exams-for-marking?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load exams for marking');
+      }
+
+      const result = await response.json();
+      const examMarks = result.data || [];
+
+      // Transform backend ExamMarkingResponse to match frontend interface
+      const transformedSubmissions = examMarks.map((mark: any) => ({
+        id: `${mark.examId}-${mark.studentNic}`, // Unique ID combining exam and student
+        exam_id: mark.examId?.toString() || '',
+        student_id: mark.studentNic || '',
+        score: mark.score, // Will be null if not graded yet
+        status: mark.status === 'NOT_GRADED' ? 'pending' : (mark.status === 'GRADED' ? 'graded' : mark.status.toLowerCase()),
+        created_at: mark.gradedAt || new Date().toISOString(),
+        exams: {
+          exam_name: mark.examName || 'Unknown Exam',
+          max_marks: mark.maxMarks || 100
+        },
+        profiles: {
+          full_name: mark.studentName || 'Unknown Student',
+          email: mark.studentEmail || ''
+        },
+        moduleCode: mark.moduleCode,
+        moduleName: mark.moduleName,
+        departmentName: mark.departmentName,
+        programName: mark.programName
+      }));
+
+      // Apply frontend status filter if any
+      let filteredSubmissions = transformedSubmissions;
+      if (examStatusFilter && examStatusFilter !== 'all') {
+        filteredSubmissions = transformedSubmissions.filter((sub: any) => sub.status === examStatusFilter);
+      }
+
+      setExamSubmissions(filteredSubmissions);
+      console.log('Loaded exam submissions:', filteredSubmissions.length);
+      
+      // Extract unique modules from exam submissions
+      extractModulesFromSubmissions(filteredSubmissions);
+
+    } catch (error) {
+      console.error('Error loading exam submissions:', error);
+      // Show empty array on error
+      setExamSubmissions([]);
+    }
+  };
+
+  // Fallback to dummy data function (for development/testing)
+  const loadExamSubmissionsDummy = async () => {
+    try {
+      if (true) {
         const dummyExams: ExamSubmission[] = [
           {
             id: 'exam-sub-1',
@@ -899,8 +1174,6 @@ export function MarksManagement() {
           }
         ];
         setExamSubmissions(dummyExams);
-      } else {
-        setExamSubmissions(data || []);
       }
     } catch (error) {
       console.error('Error loading exam submissions:', error);
@@ -1137,487 +1410,330 @@ export function MarksManagement() {
 
   const loadOverallScores = async () => {
     try {
-      const { data, error } = await supabase
-        .from('overall_scores')
-        .select(`
-          *,
-          profiles (full_name, email),
-          modules (module_code, module_name)
-        `)
-        .order('created_at', { ascending: false });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      // If error or no data from database, use dummy data for testing
-      if (error || !data || data.length === 0) {
-        const dummyScores: OverallScore[] = [
-          {
-            id: 'dummy-1',
-            student_id: 'student-1',
-            module_id: 'module-1',
-            assignment_score: 85.5,
-            exam_score: 78.0,
-            overall_score: 81.1,
-            grade: 'A-',
-            is_finalized: true,
-            profiles: {
-              full_name: 'Kasun Perera',
-              email: 'kasun.perera@example.com'
-            },
-            modules: {
-              module_code: 'CS401',
-              module_name: 'Advanced Database Systems'
-            }
-          },
-          {
-            id: 'dummy-2',
-            student_id: 'student-2',
-            module_id: 'module-1',
-            assignment_score: 92.0,
-            exam_score: 88.5,
-            overall_score: 89.8,
-            grade: 'A',
-            is_finalized: true,
-            profiles: {
-              full_name: 'Nimali Silva',
-              email: 'nimali.silva@example.com'
-            },
-            modules: {
-              module_code: 'CS401',
-              module_name: 'Advanced Database Systems'
-            }
-          },
-          {
-            id: 'dummy-3',
-            student_id: 'student-3',
-            module_id: 'module-2',
-            assignment_score: 78.0,
-            exam_score: 82.5,
-            overall_score: 80.7,
-            grade: 'A-',
-            is_finalized: false,
-            profiles: {
-              full_name: 'Ravindu Fernando',
-              email: 'ravindu.fernando@example.com'
-            },
-            modules: {
-              module_code: 'CS402',
-              module_name: 'Software Engineering Principles'
-            }
-          },
-          {
-            id: 'dummy-4',
-            student_id: 'student-4',
-            module_id: 'module-2',
-            assignment_score: 95.0,
-            exam_score: 91.0,
-            overall_score: 92.6,
-            grade: 'A+',
-            is_finalized: true,
-            profiles: {
-              full_name: 'Sanduni Jayasinghe',
-              email: 'sanduni.jayasinghe@example.com'
-            },
-            modules: {
-              module_code: 'CS402',
-              module_name: 'Software Engineering Principles'
-            }
-          },
-          {
-            id: 'dummy-5',
-            student_id: 'student-5',
-            module_id: 'module-3',
-            assignment_score: 72.5,
-            exam_score: 75.0,
-            overall_score: 74.0,
-            grade: 'B+',
-            is_finalized: false,
-            profiles: {
-              full_name: 'Dilshan Wickramasinghe',
-              email: 'dilshan.wickramasinghe@example.com'
-            },
-            modules: {
-              module_code: 'CS403',
-              module_name: 'Machine Learning Fundamentals'
-            }
-          },
-          {
-            id: 'dummy-6',
-            student_id: 'student-6',
-            module_id: 'module-3',
-            assignment_score: 88.0,
-            exam_score: 85.5,
-            overall_score: 86.5,
-            grade: 'A',
-            is_finalized: true,
-            profiles: {
-              full_name: 'Thisara Gunawardana',
-              email: 'thisara.gunawardana@example.com'
-            },
-            modules: {
-              module_code: 'CS403',
-              module_name: 'Machine Learning Fundamentals'
-            }
-          },
-          {
-            id: 'dummy-7',
-            student_id: 'student-7',
-            module_id: 'module-4',
-            assignment_score: 90.0,
-            exam_score: 93.5,
-            overall_score: 92.1,
-            grade: 'A+',
-            is_finalized: true,
-            profiles: {
-              full_name: 'Anusha Dissanayake',
-              email: 'anusha.dissanayake@example.com'
-            },
-            modules: {
-              module_code: 'CS404',
-              module_name: 'Web Technologies & Applications'
-            }
-          },
-          {
-            id: 'dummy-8',
-            student_id: 'student-8',
-            module_id: 'module-4',
-            assignment_score: 65.0,
-            exam_score: 70.0,
-            overall_score: 68.0,
-            grade: 'B',
-            is_finalized: false,
-            profiles: {
-              full_name: 'Chamara Rajapaksha',
-              email: 'chamara.rajapaksha@example.com'
-            },
-            modules: {
-              module_code: 'CS404',
-              module_name: 'Web Technologies & Applications'
-            }
-          },
-          {
-            id: 'dummy-9',
-            student_id: 'student-9',
-            module_id: 'module-5',
-            assignment_score: 82.0,
-            exam_score: 79.5,
-            overall_score: 80.5,
-            grade: 'A-',
-            is_finalized: true,
-            profiles: {
-              full_name: 'Malini Rathnayake',
-              email: 'malini.rathnayake@example.com'
-            },
-            modules: {
-              module_code: 'CS405',
-              module_name: 'Data Structures & Algorithms'
-            }
-          },
-          {
-            id: 'dummy-10',
-            student_id: 'student-10',
-            module_id: 'module-5',
-            assignment_score: 75.0,
-            exam_score: 72.0,
-            overall_score: 73.2,
-            grade: 'B+',
-            is_finalized: false,
-            profiles: {
-              full_name: 'Ashen Wijesinghe',
-              email: 'ashen.wijesinghe@example.com'
-            },
-            modules: {
-              module_code: 'CS405',
-              module_name: 'Data Structures & Algorithms'
-            }
-          }
-        ];
-        setOverallScores(dummyScores);
-      } else {
-        setOverallScores(data || []);
+      if (!token) {
+        console.error('No authentication token found');
+        return;
       }
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (selectedModuleId && selectedModuleId !== 'all') {
+        params.append('moduleId', selectedModuleId);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/marks/overall?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load overall scores');
+      }
+
+      const result = await response.json();
+      const scores = result.data || [];
+
+      // Transform backend response to match frontend interface
+      const transformedScores = scores.map((score: any) => ({
+        id: `${score.studentNic}-${score.moduleId}`,
+        student_id: score.studentNic,
+        module_id: score.moduleId.toString(),
+        assignment_score: score.assignmentScore || 0,
+        exam_score: score.examScore || 0,
+        overall_score: score.overallScore || 0,
+        grade: score.grade || 'F',
+        is_finalized: score.isComplete || false,
+        is_published: score.isPublished || false,
+        profiles: {
+          full_name: score.studentName || 'Unknown Student',
+          email: score.studentEmail || ''
+        },
+        modules: {
+          module_code: score.moduleCode || '',
+          module_name: score.moduleName || 'Unknown Module'
+        }
+      }));
+
+      setOverallScores(transformedScores);
+      console.log('Loaded overall scores:', transformedScores.length);
+      console.log('Sample score:', transformedScores[0]);
+      
+      // Extract unique modules from overall scores
+      extractModulesFromSubmissions(transformedScores);
+
     } catch (error) {
       console.error('Error loading overall scores:', error);
-      // Even on error, show dummy data
-      const dummyScores: OverallScore[] = [
-        {
-          id: 'dummy-1',
-          student_id: 'student-1',
-          module_id: 'module-1',
-          assignment_score: 85.5,
-          exam_score: 78.0,
-          overall_score: 81.1,
-          grade: 'A-',
-          is_finalized: true,
-          profiles: {
-            full_name: 'Kasun Perera',
-            email: 'kasun.perera@example.com'
-          },
-          modules: {
-            module_code: 'CS401',
-            module_name: 'Advanced Database Systems'
-          }
-        },
-        {
-          id: 'dummy-2',
-          student_id: 'student-2',
-          module_id: 'module-1',
-          assignment_score: 92.0,
-          exam_score: 88.5,
-          overall_score: 89.8,
-          grade: 'A',
-          is_finalized: true,
-          profiles: {
-            full_name: 'Nimali Silva',
-            email: 'nimali.silva@example.com'
-          },
-          modules: {
-            module_code: 'CS401',
-            module_name: 'Advanced Database Systems'
-          }
-        },
-        {
-          id: 'dummy-3',
-          student_id: 'student-3',
-          module_id: 'module-2',
-          assignment_score: 78.0,
-          exam_score: 82.5,
-          overall_score: 80.7,
-          grade: 'A-',
-          is_finalized: false,
-          profiles: {
-            full_name: 'Ravindu Fernando',
-            email: 'ravindu.fernando@example.com'
-          },
-          modules: {
-            module_code: 'CS402',
-            module_name: 'Software Engineering Principles'
-          }
-        },
-        {
-          id: 'dummy-4',
-          student_id: 'student-4',
-          module_id: 'module-2',
-          assignment_score: 95.0,
-          exam_score: 91.0,
-          overall_score: 92.6,
-          grade: 'A+',
-          is_finalized: true,
-          profiles: {
-            full_name: 'Sanduni Jayasinghe',
-            email: 'sanduni.jayasinghe@example.com'
-          },
-          modules: {
-            module_code: 'CS402',
-            module_name: 'Software Engineering Principles'
-          }
-        },
-        {
-          id: 'dummy-5',
-          student_id: 'student-5',
-          module_id: 'module-3',
-          assignment_score: 72.5,
-          exam_score: 75.0,
-          overall_score: 74.0,
-          grade: 'B+',
-          is_finalized: false,
-          profiles: {
-            full_name: 'Dilshan Wickramasinghe',
-            email: 'dilshan.wickramasinghe@example.com'
-          },
-          modules: {
-            module_code: 'CS403',
-            module_name: 'Machine Learning Fundamentals'
-          }
-        },
-        {
-          id: 'dummy-6',
-          student_id: 'student-6',
-          module_id: 'module-3',
-          assignment_score: 88.0,
-          exam_score: 85.5,
-          overall_score: 86.5,
-          grade: 'A',
-          is_finalized: true,
-          profiles: {
-            full_name: 'Thisara Gunawardana',
-            email: 'thisara.gunawardana@example.com'
-          },
-          modules: {
-            module_code: 'CS403',
-            module_name: 'Machine Learning Fundamentals'
-          }
-        },
-        {
-          id: 'dummy-7',
-          student_id: 'student-7',
-          module_id: 'module-4',
-          assignment_score: 90.0,
-          exam_score: 93.5,
-          overall_score: 92.1,
-          grade: 'A+',
-          is_finalized: true,
-          profiles: {
-            full_name: 'Anusha Dissanayake',
-            email: 'anusha.dissanayake@example.com'
-          },
-          modules: {
-            module_code: 'CS404',
-            module_name: 'Web Technologies & Applications'
-          }
-        },
-        {
-          id: 'dummy-8',
-          student_id: 'student-8',
-          module_id: 'module-4',
-          assignment_score: 65.0,
-          exam_score: 70.0,
-          overall_score: 68.0,
-          grade: 'B',
-          is_finalized: false,
-          profiles: {
-            full_name: 'Chamara Rajapaksha',
-            email: 'chamara.rajapaksha@example.com'
-          },
-          modules: {
-            module_code: 'CS404',
-            module_name: 'Web Technologies & Applications'
-          }
-        },
-        {
-          id: 'dummy-9',
-          student_id: 'student-9',
-          module_id: 'module-5',
-          assignment_score: 82.0,
-          exam_score: 79.5,
-          overall_score: 80.5,
-          grade: 'A-',
-          is_finalized: true,
-          profiles: {
-            full_name: 'Malini Rathnayake',
-            email: 'malini.rathnayake@example.com'
-          },
-          modules: {
-            module_code: 'CS405',
-            module_name: 'Data Structures & Algorithms'
-          }
-        },
-        {
-          id: 'dummy-10',
-          student_id: 'student-10',
-          module_id: 'module-5',
-          assignment_score: 75.0,
-          exam_score: 72.0,
-          overall_score: 73.2,
-          grade: 'B+',
-          is_finalized: false,
-          profiles: {
-            full_name: 'Ashen Wijesinghe',
-            email: 'ashen.wijesinghe@example.com'
-          },
-          modules: {
-            module_code: 'CS405',
-            module_name: 'Data Structures & Algorithms'
-          }
-        }
-      ];
-      setOverallScores(dummyScores);
+      setOverallScores([]);
     }
   };
 
   const loadScoreWeights = async () => {
     try {
-      const { data, error } = await supabase
-        .from('module_score_weights')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      if (error) throw error;
-      
-      // If no data from database, use dummy data for testing
-      if (!data || data.length === 0) {
-        const dummyWeights: ScoreWeight[] = [
-          {
-            id: 'weight-1',
-            module_id: 'module-1',
-            intake_id: 'intake-1',
-            assignments_weight: 40,
-            exams_weight: 60,
-            is_published: true
-          },
-          {
-            id: 'weight-2',
-            module_id: 'module-2',
-            intake_id: 'intake-1',
-            assignments_weight: 50,
-            exams_weight: 50,
-            is_published: true
-          },
-          {
-            id: 'weight-3',
-            module_id: 'module-3',
-            intake_id: 'intake-2',
-            assignments_weight: 35,
-            exams_weight: 65,
-            is_published: false
-          },
-          {
-            id: 'weight-4',
-            module_id: 'module-4',
-            intake_id: 'intake-2',
-            assignments_weight: 45,
-            exams_weight: 55,
-            is_published: true
-          }
-        ];
-        setScoreWeights(dummyWeights);
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      // Load score weights from backend API
+      const response = await fetch(`${API_BASE_URL}/api/admin/score-weights`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const weightsData = result.data || [];
+        
+        // Transform backend response to frontend format
+        const transformedWeights: ScoreWeight[] = weightsData.map((w: any) => ({
+          id: w.id.toString(),
+          module_id: w.moduleId,
+          intake_id: w.intakeId,
+          assignments_weight: w.assignmentsWeight,
+          exams_weight: w.examsWeight,
+          is_published: w.isPublished,
+          // Store module and intake info directly from backend
+          moduleCode: w.moduleCode,
+          moduleName: w.moduleName,
+          intakeName: w.intakeName,
+          intakeYear: w.intakeYear
+        }));
+        
+        console.log('Loaded score weights from API:', {
+          count: transformedWeights.length,
+          sample: transformedWeights[0]
+        });
+        
+        setScoreWeights(transformedWeights);
       } else {
-        setScoreWeights(data || []);
+        console.error('Failed to load score weights, status:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        
+        // Generate default weights if API fails
+        generateDefaultWeights();
       }
     } catch (error) {
       console.error('Error loading score weights:', error);
+      // Generate default weights if API fails
+      generateDefaultWeights();
     }
   };
 
-  const handleGradeAssignment = async (submissionId: string, marks: number) => {
-    try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny
-        .from('assignment_submissions')
-        .update({
-          marks_obtained: marks,
-          status: 'graded',
-          graded_at: new Date().toISOString(),
-          graded_by: (await supabase.auth.getUser()).data.user?.id
-        })
-        .eq('id', submissionId);
+  // Load modules for a specific intake (used in weight configuration modal)
+  const loadModulesByIntake = async (intakeId: string) => {
+    if (!intakeId) {
+      setIntakeModules([]);
+      return;
+    }
 
-      if (error) throw error;
-      loadAssignmentSubmissions();
-      alert('Assignment graded successfully!');
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      // Call backend API to get modules for this intake
+      const response = await fetch(`${API_BASE_URL}/api/admin/intake-modules/intake/${intakeId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const modulesData = result.data || [];
+        
+        console.log(`Loaded ${modulesData.length} modules for intake ${intakeId}`);
+        setIntakeModules(modulesData);
+      } else {
+        console.error('Failed to load modules for intake, status:', response.status);
+        setIntakeModules([]);
+      }
     } catch (error) {
+      console.error('Error loading modules for intake:', error);
+      setIntakeModules([]);
+    }
+  };
+
+  // Load all modules that are assigned to any intake (used for weight cards display)
+  const loadModulesAssignedToIntakes = async () => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      // Call backend API to get all modules assigned to intakes
+      const response = await fetch(`${API_BASE_URL}/api/admin/intake-modules/all-assigned-modules`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const modulesData = result.data || [];
+        
+        console.log(`Loaded ${modulesData.length} unique modules assigned to intakes`);
+        setModulesAssignedToIntakes(modulesData);
+      } else {
+        console.error('Failed to load modules assigned to intakes, status:', response.status);
+        setModulesAssignedToIntakes([]);
+      }
+    } catch (error) {
+      console.error('Error loading modules assigned to intakes:', error);
+      setModulesAssignedToIntakes([]);
+    }
+  };
+
+  const generateDefaultWeights = () => {
+    // Generate default score weights based on loaded modules and intakes
+    if (modules.length === 0 || intakes.length === 0) {
+      console.log('Waiting for modules and intakes to load before generating score weights');
+      return;
+    }
+    
+    const generatedWeights: ScoreWeight[] = [];
+    let weightId = 1;
+    
+    // Generate weight configuration for each module-intake combination
+    modules.forEach(module => {
+      intakes.forEach(intake => {
+        generatedWeights.push({
+          id: `weight-${weightId}`,
+          module_id: module.id,
+          intake_id: intake.id,
+          assignments_weight: 40, // Default: 40% assignments
+          exams_weight: 60,       // Default: 60% exams
+          is_published: true
+        });
+        weightId++;
+      });
+    });
+    
+    console.log('Generated default score weights:', {
+      count: generatedWeights.length,
+      sample: generatedWeights[0],
+      moduleCount: modules.length,
+      intakeCount: intakes.length
+    });
+    
+    setScoreWeights(generatedWeights);
+  };
+
+  const handleGradeAssignment = async (submissionId: string, marks: number, feedback?: string) => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+        showNotification('error', 'Authentication Error', 'No authentication token found. Please login again.');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/marks/assignments/${submissionId}/grade`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          submissionId: parseInt(submissionId),
+          marksObtained: marks,
+          feedback: feedback || ''
+        })
+      });
+
+      if (!response.ok) {
+        const errorResult = await response.json();
+        throw new Error(errorResult.message || 'Failed to grade assignment');
+      }
+
+      await loadAssignmentSubmissions();
+      showNotification('success', 'Success', 'Assignment graded successfully!');
+      
+      // Close modal and reset form
+      setShowAssignmentGradeModal(false);
+      setAssignmentGradeModalData(null);
+      setAssignmentGradeMarks('');
+      setAssignmentGradeFeedback('');
+    } catch (error: any) {
       console.error('Error grading assignment:', error);
-      alert('Failed to grade assignment');
+      showNotification('error', 'Error', `Failed to grade assignment: ${error.message}`);
     }
   };
 
-  const handleGradeExam = async (submissionId: string, score: number) => {
+  const handleGradeExam = async (submissionId: string, score: number, feedback?: string) => {
     try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny
-        .from('exam_submissions')
-        .update({
-          score: score,
-          status: 'graded',
-          graded_at: new Date().toISOString(),
-          graded_by: (await supabase.auth.getUser()).data.user?.id
-        })
-        .eq('id', submissionId);
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      if (error) throw error;
-      loadExamSubmissions();
-      alert('Exam graded successfully!');
-    } catch (error) {
+      if (!token) {
+        showNotification('error', 'Authentication Error', 'No authentication token found. Please login again.');
+        return;
+      }
+
+      // Parse submissionId which is in format "examId-studentNic"
+      const [examId, studentNic] = submissionId.split('-');
+      
+      if (!examId || !studentNic) {
+        showNotification('error', 'Invalid Data', 'Invalid submission ID format');
+        return;
+      }
+
+      // Use the new endpoint that doesn't require submission ID
+      const params = new URLSearchParams();
+      params.append('score', score.toString());
+      if (feedback) {
+        params.append('feedback', feedback);
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/marks/exams/${examId}/students/${studentNic}/grade?${params}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorResult = await response.json();
+        throw new Error(errorResult.message || 'Failed to grade exam');
+      }
+
+      await loadExamSubmissions();
+      showNotification('success', 'Success', 'Exam marks saved successfully!');
+      
+      // Close modal and reset form
+      setShowGradeModal(false);
+      setGradeModalData(null);
+      setGradeScore('');
+      setGradeFeedback('');
+    } catch (error: any) {
       console.error('Error grading exam:', error);
-      alert('Failed to grade exam');
+      showNotification('error', 'Error', `Failed to grade exam: ${error.message}`);
     }
   };
 
@@ -1636,41 +1752,20 @@ export function MarksManagement() {
       // Assignment title filter
       const matchesTitle = assignmentTitleFilter === 'all' || submission.assignments?.title === assignmentTitleFilter;
 
-      // Module filter (based on assignment title mapping to modules)
+      // Module filter - match against submission's moduleCode or moduleName
       let matchesModule = true;
       if (assignmentModuleFilter !== 'all') {
-        const module = modules.find(m => m.id === assignmentModuleFilter);
-        if (module && submission.assignments?.title) {
-          // Simple mapping: check if assignment title contains module name keywords
-          matchesModule = submission.assignments.title.toLowerCase().includes(module.module_name.toLowerCase().split(' ')[0]);
+        const selectedModule = modules.find(m => m.id.toString() === assignmentModuleFilter.toString());
+        if (selectedModule) {
+          matchesModule = submission.moduleCode === selectedModule.moduleCode || 
+                         submission.moduleName?.toLowerCase() === selectedModule.moduleName?.toLowerCase();
+        } else {
+          matchesModule = false;
         }
       }
 
-      // Department filter (filtered through module)
-      let matchesDepartment = true;
-      if (assignmentDepartmentFilter !== 'all') {
-        // Filter based on modules belonging to department
-        const deptModules = modules.filter(m => m.department_id === assignmentDepartmentFilter);
-        if (deptModules.length > 0 && submission.assignments?.title) {
-          matchesDepartment = deptModules.some(m => 
-            submission.assignments?.title?.toLowerCase().includes(m.module_name.toLowerCase().split(' ')[0])
-          );
-        }
-      }
-
-      // Program filter (filtered through department and modules)
-      let matchesProgram = true;
-      if (assignmentProgramFilter !== 'all') {
-        const program = programs.find(p => p.id === assignmentProgramFilter);
-        if (program) {
-          const progDeptModules = modules.filter(m => m.department_id === program.department_id);
-          if (progDeptModules.length > 0 && submission.assignments?.title) {
-            matchesProgram = progDeptModules.some(m => 
-              submission.assignments?.title?.toLowerCase().includes(m.module_name.toLowerCase().split(' ')[0])
-            );
-          }
-        }
-      }
+      // Intake filter - you can add intake matching logic here if needed
+      const matchesIntake = assignmentIntakeFilter === 'all'; // TODO: Add intake matching when data includes intake info
 
       // Score range filter
       let matchesScoreRange = true;
@@ -1687,7 +1782,7 @@ export function MarksManagement() {
         matchesScoreRange = false;
       }
 
-      return matchesSearch && matchesStatus && matchesTitle && matchesModule && matchesDepartment && matchesProgram && matchesScoreRange;
+      return matchesSearch && matchesStatus && matchesTitle && matchesModule && matchesIntake && matchesScoreRange;
     });
   };
 
@@ -1705,39 +1800,20 @@ export function MarksManagement() {
       // Exam name filter
       const matchesExamName = examNameFilter === 'all' || submission.exams?.exam_name === examNameFilter;
 
-      // Module filter (based on exam name mapping to modules)
+      // Module filter - match against submission's moduleCode or moduleName
       let matchesModule = true;
       if (examModuleFilter !== 'all') {
-        const module = modules.find(m => m.id === examModuleFilter);
-        if (module && submission.exams?.exam_name) {
-          matchesModule = submission.exams.exam_name.toLowerCase().includes(module.module_name.toLowerCase().split(' ')[0]);
+        const selectedModule = modules.find(m => m.id.toString() === examModuleFilter.toString());
+        if (selectedModule) {
+          matchesModule = submission.moduleCode === selectedModule.moduleCode || 
+                         submission.moduleName?.toLowerCase() === selectedModule.moduleName?.toLowerCase();
+        } else {
+          matchesModule = false;
         }
       }
 
-      // Department filter
-      let matchesDepartment = true;
-      if (examDepartmentFilter !== 'all') {
-        const deptModules = modules.filter(m => m.department_id === examDepartmentFilter);
-        if (deptModules.length > 0 && submission.exams?.exam_name) {
-          matchesDepartment = deptModules.some(m => 
-            submission.exams?.exam_name?.toLowerCase().includes(m.module_name.toLowerCase().split(' ')[0])
-          );
-        }
-      }
-
-      // Program filter
-      let matchesProgram = true;
-      if (examProgramFilter !== 'all') {
-        const program = programs.find(p => p.id === examProgramFilter);
-        if (program) {
-          const progDeptModules = modules.filter(m => m.department_id === program.department_id);
-          if (progDeptModules.length > 0 && submission.exams?.exam_name) {
-            matchesProgram = progDeptModules.some(m => 
-              submission.exams?.exam_name?.toLowerCase().includes(m.module_name.toLowerCase().split(' ')[0])
-            );
-          }
-        }
-      }
+      // Intake filter
+      const matchesIntake = examIntakeFilter === 'all'; // TODO: Add intake matching when data includes intake info
 
       // Score range filter
       let matchesScoreRange = true;
@@ -1754,7 +1830,7 @@ export function MarksManagement() {
         matchesScoreRange = false;
       }
 
-      return matchesSearch && matchesStatus && matchesExamName && matchesModule && matchesDepartment && matchesProgram && matchesScoreRange;
+      return matchesSearch && matchesStatus && matchesExamName && matchesModule && matchesIntake && matchesScoreRange;
     });
   };
 
@@ -1767,25 +1843,11 @@ export function MarksManagement() {
         score.modules?.module_code?.toLowerCase().includes(overallSearchTerm.toLowerCase()) ||
         score.modules?.module_name?.toLowerCase().includes(overallSearchTerm.toLowerCase());
 
-      // Module filter
+      // Module filter - match against score's module_code
       const matchesModule = overallModuleFilter === 'all' || score.modules?.module_code === overallModuleFilter;
 
-      // Department filter (through module's department)
-      let matchesDepartment = true;
-      if (overallDepartmentFilter !== 'all' && score.module_id) {
-        const scoreModule = modules.find(m => m.id === score.module_id);
-        matchesDepartment = scoreModule?.department_id === overallDepartmentFilter;
-      }
-
-      // Program filter (through module's department and program)
-      let matchesProgram = true;
-      if (overallProgramFilter !== 'all' && score.module_id) {
-        const program = programs.find(p => p.id === overallProgramFilter);
-        if (program) {
-          const scoreModule = modules.find(m => m.id === score.module_id);
-          matchesProgram = scoreModule?.department_id === program.department_id;
-        }
-      }
+      // Intake filter
+      const matchesIntake = overallIntakeFilter === 'all'; // TODO: Add intake matching when data includes intake info
 
       // Grade filter
       const matchesGrade = overallGradeFilter === 'all' || score.grade === overallGradeFilter;
@@ -1810,13 +1872,29 @@ export function MarksManagement() {
         matchesScoreRange = false;
       }
 
-      return matchesSearch && matchesModule && matchesDepartment && matchesProgram && matchesGrade && matchesStatus && matchesScoreRange;
+      return matchesSearch && matchesModule && matchesIntake && matchesGrade && matchesStatus && matchesScoreRange;
     });
   };
 
   // Filter function for Score Weights
   const getFilteredScoreWeights = () => {
+    // Get unique module IDs that are assigned to any intake
+    // These are the modules where assignments/exams can be created
+    const assignedModuleIds = new Set(
+      modulesAssignedToIntakes.map(m => Number(m.moduleId)).filter(id => !isNaN(id))
+    );
+    
+    console.log('Modules assigned to intakes:', modulesAssignedToIntakes.length);
+    console.log('Assigned module IDs:', Array.from(assignedModuleIds));
+    console.log('Total score weights:', scoreWeights.length);
+    
     return scoreWeights.filter(weight => {
+      // Convert weight module_id to number for comparison
+      const weightModuleId = Number(weight.module_id);
+      
+      // Only show weights for modules that are assigned to at least one intake
+      const isAssignedToIntake = assignedModuleIds.has(weightModuleId);
+      
       // Module filter
       const matchesModule = weightModuleFilter === 'all' || weight.module_id === weightModuleFilter;
       
@@ -1828,7 +1906,7 @@ export function MarksManagement() {
         (weightPublishedFilter === 'published' && weight.is_published) ||
         (weightPublishedFilter === 'draft' && !weight.is_published);
       
-      return matchesModule && matchesIntake && matchesPublished;
+      return isAssignedToIntake && matchesModule && matchesIntake && matchesPublished;
     });
   };
 
@@ -1849,27 +1927,59 @@ export function MarksManagement() {
     }
 
     try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny
-        .from('module_score_weights')
-        .insert({
-          module_id: selectedModuleId,
-          intake_id: selectedIntakeId,
-          assignments_weight: assignmentWeight,
-          exams_weight: examWeight,
-          is_published: false
-        });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      if (error) throw error;
-      
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+
+      // Prepare request body
+      const requestBody = {
+        moduleId: parseInt(selectedModuleId.toString()),
+        intakeId: parseInt(selectedIntakeId.toString()),
+        assignmentsWeight: assignmentWeight,
+        examsWeight: examWeight,
+        isPublished: true
+      };
+
+      console.log('Saving score weight:', requestBody);
+
+      // Save to backend API
+      const response = await fetch(`${API_BASE_URL}/api/admin/score-weights`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save score weights');
+      }
+
+      const result = await response.json();
+      console.log('Score weight saved successfully:', result);
+
+      // Close modal and reset
       setShowWeightModal(false);
       setSelectedModuleId('');
       setSelectedIntakeId('');
-      loadScoreWeights();
-      alert('Score weights saved successfully!');
-    } catch (error) {
+      setAssignmentWeight(40);
+      setExamWeight(60);
+
+      // Show success message
+      alert('Score weights saved successfully! The configuration has been updated.');
+
+      // Reload score weights and overall scores
+      await loadScoreWeights();
+      await loadOverallScores();
+    } catch (error: any) {
       console.error('Error saving weights:', error);
-      alert('Failed to save weights. Please try again.');
+      alert(error.message || 'Failed to save score weights. Please try again.');
     }
   };
 
@@ -1878,46 +1988,118 @@ export function MarksManagement() {
 
     const marks = parseFloat(overallMarksInput);
     if (isNaN(marks) || marks < 0 || marks > 100) {
-      alert('Please enter a valid marks between 0 and 100');
+      showNotification('error', 'Invalid Input', 'Please enter a valid marks between 0 and 100');
       return;
     }
 
     try {
-      const supabaseAny = supabase as any;
-      
-      // Calculate grade based on marks
-      let grade = 'F';
-      if (marks >= 90) grade = 'A+';
-      else if (marks >= 85) grade = 'A';
-      else if (marks >= 80) grade = 'A-';
-      else if (marks >= 75) grade = 'B+';
-      else if (marks >= 70) grade = 'B';
-      else if (marks >= 65) grade = 'B-';
-      else if (marks >= 60) grade = 'C+';
-      else if (marks >= 55) grade = 'C';
-      else if (marks >= 50) grade = 'C-';
-      else if (marks >= 45) grade = 'D';
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      const { error } = await supabaseAny
-        .from('overall_scores')
-        .update({
-          overall_score: marks,
-          grade: grade,
-          is_finalized: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedScore.id);
+      if (!token) {
+        showNotification('error', 'Authentication Error', 'No authentication token found. Please login again.');
+        return;
+      }
 
-      if (error) throw error;
+      // Prepare request body
+      const requestBody = {
+        studentNic: selectedScore.student_id,
+        moduleId: parseInt(selectedScore.module_id.toString()),
+        overallScore: marks,
+        comments: '',
+        isFinalized: true
+      };
 
+      // Call backend API to set overall score
+      const response = await fetch(`${API_BASE_URL}/api/admin/marks/overall`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to set overall marks');
+      }
+
+      const result = await response.json();
+      console.log('Overall marks set successfully:', result);
+
+      // Close modal and reset
       setShowSetMarksModal(false);
       setSelectedScore(null);
       setOverallMarksInput('');
-      loadOverallScores();
-      alert('Overall marks set successfully!');
-    } catch (error) {
+
+      // Show success notification
+      showNotification('success', 'Success', 'Overall marks set successfully!');
+
+      // Reload overall scores
+      await loadOverallScores();
+    } catch (error: any) {
       console.error('Error setting overall marks:', error);
-      alert('Failed to set overall marks');
+      showNotification('error', 'Error', error.message || 'Failed to set overall marks');
+    }
+  };
+
+  const handlePublishResults = async () => {
+    if (!publishModuleId || !publishIntakeId) {
+      showNotification('error', 'Invalid Input', 'Please select both module and intake');
+      return;
+    }
+
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+
+      if (!token) {
+        showNotification('error', 'Authentication Error', 'Please login again');
+        return;
+      }
+
+      const endpoint = publishAction === 'publish' ? '/api/admin/marks/publish' : '/api/admin/marks/unpublish';
+      
+      const requestBody = {
+        moduleId: parseInt(publishModuleId),
+        intakeId: parseInt(publishIntakeId),
+        studentNics: null, // Publish for all students in the intake
+        comments: ''
+      };
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to ${publishAction} results`);
+      }
+
+      const result = await response.json();
+      console.log(`Results ${publishAction}ed successfully:`, result);
+
+      // Close modal and reset
+      setShowPublishModal(false);
+      setPublishModuleId('');
+      setPublishIntakeId('');
+
+      // Show success notification
+      const count = result.data.publishedCount || result.data.unpublishedCount || 0;
+      showNotification('success', 'Success', 
+        `Successfully ${publishAction}ed ${count} result(s)!`);
+
+      // Reload overall scores to show updated published status
+      await loadOverallScores();
+    } catch (error: any) {
+      console.error(`Error ${publishAction}ing results:`, error);
+      showNotification('error', 'Error', error.message || `Failed to ${publishAction} results`);
     }
   };
 
@@ -2032,37 +2214,7 @@ export function MarksManagement() {
               </div>
 
               {/* Second Row - Academic Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                {/* Department Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                  <select
-                    value={assignmentDepartmentFilter}
-                    onChange={(e) => setAssignmentDepartmentFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="all">All Departments</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>{dept.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Program Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Program</label>
-                  <select
-                    value={assignmentProgramFilter}
-                    onChange={(e) => setAssignmentProgramFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="all">All Programs</option>
-                    {programs.map((prog) => (
-                      <option key={prog.id} value={prog.id}>{prog.name}</option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                 {/* Module Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Module</label>
@@ -2073,7 +2225,22 @@ export function MarksManagement() {
                   >
                     <option value="all">All Modules</option>
                     {modules.map((module) => (
-                      <option key={module.id} value={module.id}>{module.module_code} - {module.module_name}</option>
+                      <option key={module.id} value={module.id}>{module.moduleCode} - {module.moduleName}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Intake Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Intake</label>
+                  <select
+                    value={assignmentIntakeFilter}
+                    onChange={(e) => setAssignmentIntakeFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="all">All Intakes</option>
+                    {intakes.map((intake) => (
+                      <option key={intake.id} value={intake.id}>{intake.intakeName}</option>
                     ))}
                   </select>
                 </div>
@@ -2127,8 +2294,7 @@ export function MarksManagement() {
                       setAssignmentTitleFilter('all');
                       setAssignmentScoreRangeFilter('all');
                       setAssignmentModuleFilter('all');
-                      setAssignmentDepartmentFilter('all');
-                      setAssignmentProgramFilter('all');
+                      setAssignmentIntakeFilter('all');
                     }}
                     className="text-purple-600 hover:text-purple-800 font-medium"
                   >
@@ -2159,35 +2325,61 @@ export function MarksManagement() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assignment</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Max Marks</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {pendingAssignments.map((submission) => (
                         <tr key={submission.id}>
-                          <td className="px-4 py-3">{submission.profiles?.full_name}</td>
-                          <td className="px-4 py-3">{submission.assignments?.title}</td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <div className="font-medium text-gray-900">{submission.profiles?.full_name}</div>
+                              <div className="text-sm text-gray-500">{submission.profiles?.email}</div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <div className="font-medium text-gray-900">{submission.assignments?.title}</div>
+                              {submission.submission_name && (
+                                <div className="text-xs text-gray-500 mt-1">📎 {submission.submission_name}</div>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-500">
-                            {new Date(submission.submitted_at).toLocaleDateString()}
+                            {parseDateArray(submission.submitted_at)}
                           </td>
                           <td className="px-4 py-3">{submission.assignments?.max_marks}</td>
                           <td className="px-4 py-3">
-                            <button
-                              onClick={() => {
-                                const marks = prompt(`Enter marks (0-${submission.assignments?.max_marks}):`);
-                                if (marks !== null) {
-                                  const marksNum = parseInt(marks);
-                                  if (!isNaN(marksNum) && marksNum >= 0 && marksNum <= (submission.assignments?.max_marks || 0)) {
-                                    handleGradeAssignment(submission.id, marksNum);
-                                  } else {
-                                    alert('Invalid marks entered');
-                                  }
-                                }
-                              }}
-                              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm"
-                            >
-                              Grade
-                            </button>
+                            <div className="flex gap-2">
+                              {submission.submission_url && (
+                                <button
+                                  onClick={() => handleViewAssignmentFile(submission.submission_url!, submission.submission_name || 'assignment-file')}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1"
+                                  title="View Submission"
+                                >
+                                  <Eye size={16} />
+                                  View
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setAssignmentGradeModalData({
+                                    submissionId: submission.id,
+                                    studentName: submission.profiles?.full_name || 'Unknown Student',
+                                    assignmentTitle: submission.assignments?.title || 'Unknown Assignment',
+                                    maxMarks: submission.assignments?.max_marks || 0,
+                                    submissionUrl: submission.submission_url,
+                                    submissionName: submission.submission_name
+                                  });
+                                  setAssignmentGradeMarks('');
+                                  setAssignmentGradeFeedback('');
+                                  setShowAssignmentGradeModal(true);
+                                }}
+                                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm"
+                              >
+                                Grade
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -2288,37 +2480,7 @@ export function MarksManagement() {
               </div>
 
               {/* Second Row - Academic Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                {/* Department Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                  <select
-                    value={examDepartmentFilter}
-                    onChange={(e) => setExamDepartmentFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="all">All Departments</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>{dept.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Program Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Program</label>
-                  <select
-                    value={examProgramFilter}
-                    onChange={(e) => setExamProgramFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="all">All Programs</option>
-                    {programs.map((prog) => (
-                      <option key={prog.id} value={prog.id}>{prog.name}</option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                 {/* Module Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Module</label>
@@ -2329,7 +2491,22 @@ export function MarksManagement() {
                   >
                     <option value="all">All Modules</option>
                     {modules.map((module) => (
-                      <option key={module.id} value={module.id}>{module.module_code} - {module.module_name}</option>
+                      <option key={module.id} value={module.id}>{module.moduleCode} - {module.moduleName}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Intake Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Intake</label>
+                  <select
+                    value={examIntakeFilter}
+                    onChange={(e) => setExamIntakeFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="all">All Intakes</option>
+                    {intakes.map((intake) => (
+                      <option key={intake.id} value={intake.id}>{intake.intakeName}</option>
                     ))}
                   </select>
                 </div>
@@ -2383,8 +2560,7 @@ export function MarksManagement() {
                       setExamNameFilter('all');
                       setExamScoreRangeFilter('all');
                       setExamModuleFilter('all');
-                      setExamDepartmentFilter('all');
-                      setExamProgramFilter('all');
+                      setExamIntakeFilter('all');
                     }}
                     className="text-purple-600 hover:text-purple-800 font-medium"
                   >
@@ -2426,15 +2602,15 @@ export function MarksManagement() {
                           <td className="px-4 py-3">
                             <button
                               onClick={() => {
-                                const score = prompt(`Enter score (0-${submission.exams?.max_marks}):`);
-                                if (score !== null) {
-                                  const scoreNum = parseInt(score);
-                                  if (!isNaN(scoreNum) && scoreNum >= 0 && scoreNum <= (submission.exams?.max_marks || 0)) {
-                                    handleGradeExam(submission.id, scoreNum);
-                                  } else {
-                                    alert('Invalid score entered');
-                                  }
-                                }
+                                setGradeModalData({
+                                  submissionId: submission.id,
+                                  studentName: submission.profiles?.full_name || 'Unknown Student',
+                                  examName: submission.exams?.exam_name || 'Unknown Exam',
+                                  maxMarks: submission.exams?.max_marks || 0
+                                });
+                                setGradeScore('');
+                                setGradeFeedback('');
+                                setShowGradeModal(true);
                               }}
                               className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm"
                             >
@@ -2511,7 +2687,7 @@ export function MarksManagement() {
                     <Settings className="text-purple-600" size={24} />
                     Module-Wide Score Weight Configuration
                   </h3>
-                  <p className="text-sm text-gray-600 mt-1">Configure scoring weights for each module and intake combination</p>
+                  <p className="text-sm text-gray-600 mt-1">Configure scoring weights for each module assigned to intakes (where assignments/exams can be created)</p>
                 </div>
                 <button
                   onClick={() => setShowWeightModal(true)}
@@ -2532,7 +2708,7 @@ export function MarksManagement() {
                   >
                     <option value="all">All Modules</option>
                     {modules.map((module) => (
-                      <option key={module.id} value={module.id}>{module.module_code}</option>
+                      <option key={module.id} value={module.id}>{module.moduleCode}</option>
                     ))}
                   </select>
                 </div>
@@ -2584,14 +2760,19 @@ export function MarksManagement() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {getFilteredScoreWeights().map((weight) => {
-                    const module = modules.find(m => m.id === weight.module_id);
-                    const intake = intakes.find(i => i.id === weight.intake_id);
+                    // Use data directly from weight object (backend includes module/intake info)
                     return (
-                      <div key={weight.id} className="border rounded-lg p-4">
+                      <div key={weight.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                         <div className="mb-3">
-                          <h4 className="font-semibold text-gray-900">{module?.module_code || 'N/A'}</h4>
-                          <p className="text-sm text-gray-600">{module?.module_name || 'Unknown Module'}</p>
-                          <p className="text-xs text-gray-500 mt-1">Intake: {intake?.intake_name || 'N/A'} ({intake?.intake_year || 'N/A'})</p>
+                          <h4 className="font-semibold text-gray-900">
+                            {weight.moduleCode || 'N/A'}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {weight.moduleName || 'Unknown Module'}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Intake: {weight.intakeName || 'N/A'} ({weight.intakeYear || 'N/A'})
+                          </p>
                         </div>
                         <div className="flex items-center gap-2 mb-2">
                           <span className={`px-2 py-1 text-xs rounded ${
@@ -2655,37 +2836,7 @@ export function MarksManagement() {
               </div>
 
               {/* Second Row - Academic Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                {/* Department Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                  <select
-                    value={overallDepartmentFilter}
-                    onChange={(e) => setOverallDepartmentFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="all">All Departments</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>{dept.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Program Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Program</label>
-                  <select
-                    value={overallProgramFilter}
-                    onChange={(e) => setOverallProgramFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="all">All Programs</option>
-                    {programs.map((program) => (
-                      <option key={program.id} value={program.id}>{program.name}</option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                 {/* Module Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Module</label>
@@ -2697,6 +2848,21 @@ export function MarksManagement() {
                     <option value="all">All Modules</option>
                     {uniqueModuleCodes.map((code) => (
                       <option key={code} value={code}>{code}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Intake Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Intake</label>
+                  <select
+                    value={overallIntakeFilter}
+                    onChange={(e) => setOverallIntakeFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="all">All Intakes</option>
+                    {intakes.map((intake) => (
+                      <option key={intake.id} value={intake.id}>{intake.intakeName}</option>
                     ))}
                   </select>
                 </div>
@@ -2751,10 +2917,9 @@ export function MarksManagement() {
                     onClick={() => {
                       setOverallSearchTerm('');
                       setOverallModuleFilter('all');
+                      setOverallIntakeFilter('all');
                       setOverallGradeFilter('all');
                       setOverallStatusFilter('all');
-                      setOverallDepartmentFilter('all');
-                      setOverallProgramFilter('all');
                       setOverallScoreRangeFilter('all');
                     }}
                     className="text-purple-600 hover:text-purple-800 font-medium"
@@ -2767,7 +2932,19 @@ export function MarksManagement() {
 
             {/* Overall Scores List */}
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Student Overall Scores</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">Student Overall Scores</h3>
+                <button
+                  onClick={() => {
+                    setShowPublishModal(true);
+                    setPublishAction('publish');
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                >
+                  <CheckCircle size={18} />
+                  Publish Results
+                </button>
+              </div>
               {loading ? (
                 <div className="text-center py-8">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-700"></div>
@@ -2788,6 +2965,7 @@ export function MarksManagement() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Overall</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Published</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
                       </tr>
                     </thead>
@@ -2821,6 +2999,13 @@ export function MarksManagement() {
                               score.is_finalized ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                             }`}>
                               {score.is_finalized ? 'Finalized' : 'Draft'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              score.is_published ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              {score.is_published ? '✓ Published' : '⏳ Unpublished'}
                             </span>
                           </td>
                           <td className="px-4 py-3">
@@ -2858,17 +3043,22 @@ export function MarksManagement() {
               <div className="space-y-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Module <span className="text-red-600">*</span>
+                    Select Intake <span className="text-red-600">*</span>
                   </label>
                   <select
-                    value={selectedModuleId}
-                    onChange={(e) => setSelectedModuleId(e.target.value)}
+                    value={selectedIntakeId}
+                    onChange={(e) => {
+                      const newIntakeId = e.target.value;
+                      setSelectedIntakeId(newIntakeId);
+                      setSelectedModuleId(''); // Reset module selection when intake changes
+                      loadModulesByIntake(newIntakeId); // Load modules for selected intake
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
-                    <option value="">-- Select Module --</option>
-                    {modules.map((module) => (
-                      <option key={module.id} value={module.id}>
-                        {module.module_code} - {module.module_name}
+                    <option value="">-- Select Intake --</option>
+                    {intakes.map((intake) => (
+                      <option key={intake.id} value={intake.id}>
+                        {intake.intakeName || intake.intake_name || 'Unnamed Intake'} ({intake.intakeYear || intake.intake_year || 'N/A'})
                       </option>
                     ))}
                   </select>
@@ -2876,20 +3066,29 @@ export function MarksManagement() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Intake <span className="text-red-600">*</span>
+                    Select Module <span className="text-red-600">*</span>
                   </label>
                   <select
-                    value={selectedIntakeId}
-                    onChange={(e) => setSelectedIntakeId(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    value={selectedModuleId}
+                    onChange={(e) => setSelectedModuleId(e.target.value)}
+                    disabled={!selectedIntakeId}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
-                    <option value="">-- Select Intake --</option>
-                    {intakes.map((intake) => (
-                      <option key={intake.id} value={intake.id}>
-                        {intake.intake_name} ({intake.intake_year})
+                    <option value="">
+                      {selectedIntakeId ? '-- Select Module --' : '-- Select Intake First --'}
+                    </option>
+                    {/* Show modules assigned to the selected intake */}
+                    {intakeModules.map((intakeModule) => (
+                      <option key={intakeModule.moduleId} value={intakeModule.moduleId}>
+                        {intakeModule.moduleCode} - {intakeModule.moduleName}
                       </option>
                     ))}
                   </select>
+                  {selectedIntakeId && intakeModules.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ No modules assigned to this intake
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -2973,8 +3172,8 @@ export function MarksManagement() {
 
         {/* Set Overall Marks Modal */}
         {showSetMarksModal && selectedScore && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-lg max-w-md w-full p-6 my-8 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Set Overall Marks</h2>
               
               <div className="bg-emerald-50 p-4 rounded-lg mb-6">
@@ -2989,7 +3188,7 @@ export function MarksManagement() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Module Name:</span>
-                    <span className="font-semibold text-right">{selectedScore.modules?.module_name}</span>
+                    <span className="font-semibold text-right max-w-[200px] break-words">{selectedScore.modules?.module_name}</span>
                   </div>
                   {selectedScore.assignment_score && (
                     <div className="flex justify-between">
@@ -3063,6 +3262,412 @@ export function MarksManagement() {
             </div>
           </div>
         )}
+
+      {/* Notification Toast */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-50 animate-slide-in-right">
+          <div className={`rounded-lg shadow-lg p-4 max-w-md ${
+            notification.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+          }`}>
+            <div className="flex items-start">
+              <div className={`flex-shrink-0 ${notification.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                {notification.type === 'success' ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className={`text-sm font-medium ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                  {notification.title}
+                </h3>
+                <p className={`mt-1 text-sm ${notification.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
+                  {notification.message}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Grade Exam Modal */}
+      {showGradeModal && gradeModalData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Grade Exam</h2>
+                <button
+                  onClick={() => {
+                    setShowGradeModal(false);
+                    setGradeModalData(null);
+                    setGradeScore('');
+                    setGradeFeedback('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const scoreNum = parseInt(gradeScore);
+                if (!isNaN(scoreNum) && scoreNum >= 0 && scoreNum <= gradeModalData.maxMarks) {
+                  handleGradeExam(gradeModalData.submissionId, scoreNum, gradeFeedback || undefined);
+                } else {
+                  showNotification('error', 'Invalid Score', `Please enter a valid score between 0 and ${gradeModalData.maxMarks}`);
+                }
+              }}
+              className="p-6 space-y-4"
+            >
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium text-gray-700">Student:</span>
+                  <span className="text-sm text-gray-900">{gradeModalData.studentName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium text-gray-700">Exam:</span>
+                  <span className="text-sm text-gray-900">{gradeModalData.examName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium text-gray-700">Maximum Marks:</span>
+                  <span className="text-sm font-bold text-purple-600">{gradeModalData.maxMarks}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Score (0-{gradeModalData.maxMarks}) *
+                </label>
+                <input
+                  type="number"
+                  value={gradeScore}
+                  onChange={(e) => setGradeScore(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  min="0"
+                  max={gradeModalData.maxMarks}
+                  required
+                  placeholder="Enter score"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Feedback (Optional)
+                </label>
+                <textarea
+                  value={gradeFeedback}
+                  onChange={(e) => setGradeFeedback(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  rows={3}
+                  placeholder="Enter feedback for student..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGradeModal(false);
+                    setGradeModalData(null);
+                    setGradeScore('');
+                    setGradeFeedback('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Save Grade
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Grade Assignment Modal */}
+      {showAssignmentGradeModal && assignmentGradeModalData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Grade Assignment</h2>
+                <button
+                  onClick={() => {
+                    setShowAssignmentGradeModal(false);
+                    setAssignmentGradeModalData(null);
+                    setAssignmentGradeMarks('');
+                    setAssignmentGradeFeedback('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const marksNum = parseInt(assignmentGradeMarks);
+                if (!isNaN(marksNum) && marksNum >= 0 && marksNum <= assignmentGradeModalData.maxMarks) {
+                  handleGradeAssignment(assignmentGradeModalData.submissionId, marksNum, assignmentGradeFeedback || undefined);
+                } else {
+                  showNotification('error', 'Invalid Marks', `Please enter valid marks between 0 and ${assignmentGradeModalData.maxMarks}`);
+                }
+              }}
+              className="p-6 space-y-4"
+            >
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium text-gray-700">Student:</span>
+                  <span className="text-sm text-gray-900">{assignmentGradeModalData.studentName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium text-gray-700">Assignment:</span>
+                  <span className="text-sm text-gray-900">{assignmentGradeModalData.assignmentTitle}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium text-gray-700">Maximum Marks:</span>
+                  <span className="text-sm font-bold text-purple-600">{assignmentGradeModalData.maxMarks}</span>
+                </div>
+                {assignmentGradeModalData.submissionName && (
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium text-gray-700">Submitted File:</span>
+                    <span className="text-sm text-gray-900">📎 {assignmentGradeModalData.submissionName}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* View Submission Button */}
+              {assignmentGradeModalData.submissionUrl && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-900">View Student Submission</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleViewAssignmentFile(assignmentGradeModalData.submissionUrl!, assignmentGradeModalData.submissionName || 'assignment-file')}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm flex items-center gap-1"
+                    >
+                      <Eye size={16} />
+                      Open File
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Marks (0-{assignmentGradeModalData.maxMarks}) *
+                </label>
+                <input
+                  type="number"
+                  value={assignmentGradeMarks}
+                  onChange={(e) => setAssignmentGradeMarks(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  min="0"
+                  max={assignmentGradeModalData.maxMarks}
+                  required
+                  placeholder="Enter marks"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Feedback (Optional)
+                </label>
+                <textarea
+                  value={assignmentGradeFeedback}
+                  onChange={(e) => setAssignmentGradeFeedback(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  rows={4}
+                  placeholder="Enter feedback for student..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAssignmentGradeModal(false);
+                    setAssignmentGradeModalData(null);
+                    setAssignmentGradeMarks('');
+                    setAssignmentGradeFeedback('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Save Grade
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Publish Results Modal */}
+      {showPublishModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <CheckCircle className="text-emerald-600" size={24} />
+                {publishAction === 'publish' ? 'Publish Results' : 'Unpublish Results'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowPublishModal(false);
+                  setPublishModuleId('');
+                  setPublishIntakeId('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  {publishAction === 'publish' 
+                    ? '📢 This will make the results visible to students in the selected intake for the selected module. Only finalized and graded results will be published.'
+                    : '⚠️ This will hide the published results from students. They will no longer be able to see their grades for this module.'}
+                </p>
+              </div>
+
+              {/* Step 1: Select Intake First */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Step 1: Select Intake *
+                </label>
+                <select
+                  value={publishIntakeId}
+                  onChange={(e) => {
+                    setPublishIntakeId(e.target.value);
+                    setPublishModuleId(''); // Reset module when intake changes
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">-- Select Intake --</option>
+                  {intakes.map((intake) => (
+                    <option key={intake.id} value={intake.id}>
+                      {intake.intakeName || intake.intake_name} ({intake.intakeYear || intake.intake_year})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Step 2: Select Module (filtered by intake) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Step 2: Select Module *
+                </label>
+                <select
+                  value={publishModuleId}
+                  onChange={(e) => setPublishModuleId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  required
+                  disabled={!publishIntakeId}
+                >
+                  <option value="">
+                    {publishIntakeId ? '-- Select Module --' : '-- Select an intake first --'}
+                  </option>
+                  {publishIntakeId && (() => {
+                    const selectedIntakeIdNum = Number(publishIntakeId);
+                    console.log('Selected intake ID:', selectedIntakeIdNum);
+                    console.log('Modules assigned to intakes:', modulesAssignedToIntakes);
+                    
+                    const filteredModules = modulesAssignedToIntakes.filter(im => {
+                      const imIntakeId = Number(im.intakeId || im.intake_id);
+                      const matches = imIntakeId === selectedIntakeIdNum;
+                      if (matches) {
+                        console.log('Matched intake module:', im);
+                      }
+                      return matches;
+                    });
+                    
+                    console.log('Filtered modules for intake:', filteredModules);
+                    
+                    return filteredModules.map((intakeModule) => {
+                      const moduleIdToFind = Number(intakeModule.moduleId || intakeModule.module_id);
+                      const module = modules.find(m => Number(m.id) === moduleIdToFind);
+                      
+                      if (module) {
+                        console.log('Found module:', module);
+                      } else {
+                        console.log('Module not found for ID:', moduleIdToFind);
+                      }
+                      
+                      return module ? (
+                        <option key={intakeModule.id} value={module.id}>
+                          {module.moduleCode || module.module_code} - {module.moduleName || module.module_name}
+                        </option>
+                      ) : null;
+                    });
+                  })()}
+                </select>
+                {!publishIntakeId && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Please select an intake first to see available modules
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-xs text-yellow-800">
+                  💡 <strong>Tip:</strong> Make sure all students in the intake have been graded and their scores are finalized before publishing.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowPublishModal(false);
+                    setPublishModuleId('');
+                    setPublishIntakeId('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePublishResults}
+                  disabled={!publishModuleId || !publishIntakeId}
+                  className={`flex-1 px-4 py-2 rounded-lg text-white font-medium ${
+                    publishAction === 'publish'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300'
+                      : 'bg-orange-600 hover:bg-orange-700 disabled:bg-gray-300'
+                  } disabled:cursor-not-allowed`}
+                >
+                  {publishAction === 'publish' ? '✓ Publish' : '✗ Unpublish'}
+                </button>
+              </div>
+
+              {/* Action switcher */}
+              <div className="pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setPublishAction(publishAction === 'publish' ? 'unpublish' : 'publish')}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  {publishAction === 'publish' 
+                    ? '← Switch to Unpublish Mode' 
+                    : '← Switch to Publish Mode'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

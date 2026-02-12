@@ -1,165 +1,370 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { Upload, CheckCircle } from 'lucide-react';
+import { registrationService, StudentRegistrationData } from '../services/registrationService';
 
-interface Program {
-  id: string;
+interface Faculty {
+  id: number;
   name: string;
+  code: string;
+  isActive?: boolean;
 }
 
+interface Department {
+  id: number;
+  departmentName: string;
+  name?: string;
+  code: string;
+  facultyId: number;
+  isActive?: boolean;
+}
+
+interface Program {
+  id: number;
+  name: string;
+  code: string;
+  departmentId: number;
+  isActive?: boolean;
+}
+
+import { ADMIN_API_URL, FULL_API_URL } from '../lib/apiConfig';
+
 function Register() {
+  const [faculties, setFaculties] = useState<Faculty[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [allDepartments, setAllDepartments] = useState<Department[]>([]);
+  const [allPrograms, setAllPrograms] = useState<Program[]>([]);
+  
+  const [selectedFaculty, setSelectedFaculty] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+
   const [formData, setFormData] = useState({
-    full_name: '',
-    name_with_initials: '',
-    nic: '',
-    date_of_birth: '',
-    permanent_address: '',
-    mobile_number: '',
-    email: '',
-    emergency_contact_name: '',
-    emergency_contact_relationship: '',
-    emergency_contact_mobile: '',
-    ol_qualifications: '',
-    al_qualifications: '',
-    other_qualifications: '',
-    program_id: '',
+    fullName: '',
+    nameWithInitials: '',
+    nicNumber: '',
+    dateOfBirth: '',
+    permanentAddress: '',
+    mobileNumber: '+94',
+    emailAddress: '',
+    contactName: '',
+    relationship: '',
+    contactMobileNumber: '+94',
+    olResults: '',
+    alResults: '',
+    otherQualifications: '',
+    programmeId: '',
   });
 
   const [documents, setDocuments] = useState<{
-    nic_document: File | null;
-    birth_certificate: File | null;
-    qualification_certificate: File | null;
-    payment_slip: File | null;
+    nicDocument: File | null;
+    birthCertificate: File | null;
+    qualificationCertificates: File | null;
+    paymentSlip: File | null;
   }>({
-    nic_document: null,
-    birth_certificate: null,
-    qualification_certificate: null,
-    payment_slip: null,
+    nicDocument: null,
+    birthCertificate: null,
+    qualificationCertificates: null,
+    paymentSlip: null,
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [applicationNumber, setApplicationNumber] = useState('');
 
   useEffect(() => {
-    loadPrograms();
+    loadFaculties();
+    loadAllDepartments();
+    loadAllPrograms();
   }, []);
 
-  const loadPrograms = async () => {
-    const { data } = await supabase
-      .from('programs')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('name');
+  // Filter departments when faculty changes
+  useEffect(() => {
+    if (selectedFaculty && allDepartments.length > 0) {
+      const filtered = allDepartments.filter(d => d.facultyId === parseInt(selectedFaculty));
+      setDepartments(filtered);
+      setSelectedDepartment('');
+      setPrograms([]);
+      setFormData(prev => ({ ...prev, programmeId: '' }));
+    } else {
+      setDepartments([]);
+      setPrograms([]);
+    }
+  }, [selectedFaculty, allDepartments]);
 
-    if (data) {
-      setPrograms(data);
+  // Filter programs when department changes
+  useEffect(() => {
+    if (selectedDepartment && allPrograms.length > 0) {
+      const filtered = allPrograms.filter(p => p.departmentId === parseInt(selectedDepartment) && p.isActive !== false);
+      setPrograms(filtered);
+      setFormData(prev => ({ ...prev, programmeId: '' }));
+    } else {
+      setPrograms([]);
+    }
+  }, [selectedDepartment, allPrograms]);
+
+  const loadFaculties = async () => {
+    try {
+      const response = await fetch(`${FULL_API_URL}/public/inquiry/faculties`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to load faculties'}`);
+      }
+      
+      const result = await response.json();
+      if (result.statusCode === '000' && result.data) {
+        const activeFaculties = result.data.filter((f: Faculty) => f.isActive !== false);
+        setFaculties(activeFaculties);
+      }
+    } catch (error: any) {
+      console.error('Error loading faculties:', error);
+      setError('Failed to load faculties. Please refresh the page.');
+    }
+  };
+
+  const loadAllDepartments = async () => {
+    try {
+      const response = await fetch(`${FULL_API_URL}/public/inquiry/departments`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to load departments'}`);
+      }
+      
+      const result = await response.json();
+      if (result.statusCode === '000' && result.data) {
+        setAllDepartments(result.data);
+      }
+    } catch (error: any) {
+      console.error('Error loading departments:', error);
+      setError('Failed to load departments. Please refresh the page.');
+    }
+  };
+
+  const loadAllPrograms = async () => {
+    try {
+      const response = await fetch(`${FULL_API_URL}/public/inquiry/programs`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to load programs'}`);
+      }
+      
+      const result = await response.json();
+      if (result.statusCode === '000' && result.data) {
+        setAllPrograms(result.data);
+      }
+    } catch (error: any) {
+      console.error('Error loading programs:', error);
+      setError('Failed to load programs. Please refresh the page.');
     }
   };
 
   const handleFileChange = (documentType: keyof typeof documents, file: File | null) => {
     if (file) {
-      if (file.size > 50 * 1024 * 1024) {
+      // Validate file size (50MB)
+      if (!registrationService.validateFileSize(file)) {
         setError('File size must be less than 50MB');
         return;
       }
+      
+      // Validate file type
+      if (!registrationService.validateFileType(file)) {
+        setError('File must be PDF, JPG, or PNG format');
+        return;
+      }
+      
       setDocuments({ ...documents, [documentType]: file });
       setError('');
     }
   };
 
-  const uploadDocument = async (file: File, folder: string): Promise<string | null> => {
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
-      const filePath = `${folder}/${fileName}`;
+  const validateForm = (): boolean => {
+    // Reset error
+    setError('');
 
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
-    } catch (err) {
-      console.error('Upload error:', err);
-      return null;
+    // Check required fields
+    if (!formData.fullName.trim()) {
+      setError('Full name is required');
+      return false;
     }
+    if (!formData.nameWithInitials.trim()) {
+      setError('Name with initials is required');
+      return false;
+    }
+    if (!formData.nicNumber.trim()) {
+      setError('NIC number is required');
+      return false;
+    }
+    if (!registrationService.validateNIC(formData.nicNumber)) {
+      setError('Invalid NIC format. Use 9 digits followed by V/X or 12 digits');
+      return false;
+    }
+    if (!formData.dateOfBirth) {
+      setError('Date of birth is required');
+      return false;
+    }
+    if (!formData.permanentAddress.trim()) {
+      setError('Permanent address is required');
+      return false;
+    }
+    if (!formData.mobileNumber || formData.mobileNumber === '+94') {
+      setError('Mobile number is required');
+      return false;
+    }
+    if (!registrationService.validateMobileNumber(formData.mobileNumber)) {
+      setError('Invalid mobile number format. Use +94 XX XXX XXXX');
+      return false;
+    }
+    if (!formData.emailAddress.trim()) {
+      setError('Email address is required');
+      return false;
+    }
+    if (!formData.contactName.trim()) {
+      setError('Emergency contact name is required');
+      return false;
+    }
+    if (!formData.relationship.trim()) {
+      setError('Relationship is required');
+      return false;
+    }
+    if (!formData.contactMobileNumber || formData.contactMobileNumber === '+94') {
+      setError('Emergency contact mobile number is required');
+      return false;
+    }
+    if (!registrationService.validateMobileNumber(formData.contactMobileNumber)) {
+      setError('Invalid emergency contact mobile number format');
+      return false;
+    }
+    if (!formData.olResults.trim()) {
+      setError('O/L results are required');
+      return false;
+    }
+    if (!formData.alResults.trim()) {
+      setError('A/L results are required');
+      return false;
+    }
+    if (!selectedFaculty) {
+      setError('Faculty selection is required');
+      return false;
+    }
+    if (!selectedDepartment) {
+      setError('Department selection is required');
+      return false;
+    }
+    if (!formData.programmeId) {
+      setError('Programme selection is required');
+      return false;
+    }
+
+    // Check required documents
+    if (!documents.nicDocument) {
+      setError('NIC document is required');
+      return false;
+    }
+    if (!documents.birthCertificate) {
+      setError('Birth certificate is required');
+      return false;
+    }
+    if (!documents.qualificationCertificates) {
+      setError('Qualification certificates are required');
+      return false;
+    }
+    if (!documents.paymentSlip) {
+      setError('Payment slip is required');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      // Upload all documents
-      const nic_document_url = documents.nic_document 
-        ? await uploadDocument(documents.nic_document, 'nic-documents')
-        : null;
-
-      const birth_certificate_url = documents.birth_certificate
-        ? await uploadDocument(documents.birth_certificate, 'birth-certificates')
-        : null;
-
-      const qualification_certificate_url = documents.qualification_certificate
-        ? await uploadDocument(documents.qualification_certificate, 'qualification-certificates')
-        : null;
-
-      const payment_proof_url = documents.payment_slip
-        ? await uploadDocument(documents.payment_slip, 'payment-proofs')
-        : null;
-
-      // Insert registration data
-      const registrationData = {
-        ...formData,
-        phone: formData.mobile_number,  // Legacy field compatibility
-        address: formData.permanent_address,  // Legacy field compatibility
-        nic_document_url,
-        birth_certificate_url,
-        qualification_certificate_url,
-        payment_slip_url: payment_proof_url,
-        status: 'pending'
+      // Prepare data for API submission
+      const registrationData: StudentRegistrationData = {
+        fullName: formData.fullName,
+        nameWithInitials: formData.nameWithInitials,
+        nicNumber: formData.nicNumber,
+        dateOfBirth: formData.dateOfBirth,
+        permanentAddress: formData.permanentAddress,
+        mobileNumber: formData.mobileNumber,
+        emailAddress: formData.emailAddress,
+        contactName: formData.contactName,
+        relationship: formData.relationship,
+        contactMobileNumber: formData.contactMobileNumber,
+        olResults: formData.olResults,
+        alResults: formData.alResults,
+        otherQualifications: formData.otherQualifications,
+        programmeId: parseInt(formData.programmeId),
+        nicDocument: documents.nicDocument!,
+        birthCertificate: documents.birthCertificate!,
+        qualificationCertificates: documents.qualificationCertificates!,
+        paymentSlip: documents.paymentSlip!
       };
 
-      // Temporary workaround for type mismatch - run migration and regenerate types
-      const { error: insertError } = await (supabase as any)
-        .from('registrations')
-        .insert([registrationData]);
-
-      if (insertError) throw insertError;
-
-      setSuccess(true);
+      const result = await registrationService.submitRegistration(registrationData);
       
-      // Reset form
-      setFormData({
-        full_name: '',
-        name_with_initials: '',
-        nic: '',
-        date_of_birth: '',
-        permanent_address: '',
-        mobile_number: '',
-        email: '',
-        emergency_contact_name: '',
-        emergency_contact_relationship: '',
-        emergency_contact_mobile: '',
-        ol_qualifications: '',
-        al_qualifications: '',
-        other_qualifications: '',
-        program_id: '',
-      });
-      
-      setDocuments({
-        nic_document: null,
-        birth_certificate: null,
-        qualification_certificate: null,
-        payment_slip: null,
-      });
+      if (result.success && result.data) {
+        setApplicationNumber(result.data.applicationNumber);
+        setSuccess(true);
+        
+        // Reset form
+        setSelectedFaculty('');
+        setSelectedDepartment('');
+        setFormData({
+          fullName: '',
+          nameWithInitials: '',
+          nicNumber: '',
+          dateOfBirth: '',
+          permanentAddress: '',
+          mobileNumber: '+94',
+          emailAddress: '',
+          contactName: '',
+          relationship: '',
+          contactMobileNumber: '+94',
+          olResults: '',
+          alResults: '',
+          otherQualifications: '',
+          programmeId: '',
+        });
+        
+        setDocuments({
+          nicDocument: null,
+          birthCertificate: null,
+          qualificationCertificates: null,
+          paymentSlip: null,
+        });
+      } else {
+        setError(result.message);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to submit registration. Please try again.');
       console.error(err);
@@ -174,11 +379,20 @@ function Register() {
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <CheckCircle className="text-green-500 mx-auto mb-4" size={64} />
           <h2 className="text-3xl font-bold text-gray-900 mb-4">Registration Submitted!</h2>
+          {applicationNumber && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4">
+              <p className="text-emerald-800 font-semibold">Application Number:</p>
+              <p className="text-emerald-900 text-xl font-bold">{applicationNumber}</p>
+            </div>
+          )}
           <p className="text-gray-700 mb-6">
             Thank you for registering with <span className="font-baskerville">SIPS</span>. Our team will review your registration and payment details. You will receive a confirmation email shortly.
           </p>
           <button
-            onClick={() => setSuccess(false)}
+            onClick={() => {
+              setSuccess(false);
+              setApplicationNumber('');
+            }}
             className="bg-emerald-700 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
           >
             Submit Another Registration
@@ -222,8 +436,8 @@ function Register() {
                   <input
                     type="text"
                     required
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="John Doe Smith"
                   />
@@ -236,8 +450,8 @@ function Register() {
                   <input
                     type="text"
                     required
-                    value={formData.name_with_initials}
-                    onChange={(e) => setFormData({ ...formData, name_with_initials: e.target.value })}
+                    value={formData.nameWithInitials}
+                    onChange={(e) => setFormData({ ...formData, nameWithInitials: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="J.D. Smith"
                   />
@@ -250,10 +464,11 @@ function Register() {
                   <input
                     type="text"
                     required
-                    value={formData.nic}
-                    onChange={(e) => setFormData({ ...formData, nic: e.target.value })}
+                    value={formData.nicNumber}
+                    onChange={(e) => setFormData({ ...formData, nicNumber: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="199812345678 or 981234567V"
+                    pattern="^[0-9]{9}[vVxX]$|^[0-9]{12}$"
                   />
                 </div>
 
@@ -264,8 +479,8 @@ function Register() {
                   <input
                     type="date"
                     required
-                    value={formData.date_of_birth}
-                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                    value={formData.dateOfBirth}
+                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -285,8 +500,8 @@ function Register() {
                   <textarea
                     required
                     rows={3}
-                    value={formData.permanent_address}
-                    onChange={(e) => setFormData({ ...formData, permanent_address: e.target.value })}
+                    value={formData.permanentAddress}
+                    onChange={(e) => setFormData({ ...formData, permanentAddress: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="123 Main Street, City, Province"
                   />
@@ -297,14 +512,26 @@ function Register() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Mobile Number *
                     </label>
-                    <input
-                      type="tel"
-                      required
-                      value={formData.mobile_number}
-                      onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="0771234567"
-                    />
+                    <div className="flex">
+                      <span className="inline-flex items-center px-3 py-3 border border-r-0 border-gray-300 bg-gray-50 text-gray-700 text-sm rounded-l-lg">
+                        +94
+                      </span>
+                      <input
+                        type="tel"
+                        required
+                        value={formData.mobileNumber.replace('+94', '')}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
+                          if (value.length <= 9) {
+                            setFormData({ ...formData, mobileNumber: `+94${value}` });
+                          }
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="77 123 4567"
+                        maxLength={9}
+                        pattern="^[0-9]{9}$"
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -314,8 +541,8 @@ function Register() {
                     <input
                       type="email"
                       required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      value={formData.emailAddress}
+                      onChange={(e) => setFormData({ ...formData, emailAddress: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       placeholder="john@example.com"
                     />
@@ -337,8 +564,8 @@ function Register() {
                   <input
                     type="text"
                     required
-                    value={formData.emergency_contact_name}
-                    onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })}
+                    value={formData.contactName}
+                    onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Jane Smith"
                   />
@@ -351,8 +578,8 @@ function Register() {
                   <input
                     type="text"
                     required
-                    value={formData.emergency_contact_relationship}
-                    onChange={(e) => setFormData({ ...formData, emergency_contact_relationship: e.target.value })}
+                    value={formData.relationship}
+                    onChange={(e) => setFormData({ ...formData, relationship: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Mother/Father/Spouse"
                   />
@@ -362,14 +589,26 @@ function Register() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Mobile Number *
                   </label>
-                  <input
-                    type="tel"
-                    required
-                    value={formData.emergency_contact_mobile}
-                    onChange={(e) => setFormData({ ...formData, emergency_contact_mobile: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="0771234567"
-                  />
+                  <div className="flex">
+                    <span className="inline-flex items-center px-3 py-3 border border-r-0 border-gray-300 bg-gray-50 text-gray-700 text-sm rounded-l-lg">
+                      +94
+                    </span>
+                    <input
+                      type="tel"
+                      required
+                      value={formData.contactMobileNumber.replace('+94', '')}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        if (value.length <= 9) {
+                          setFormData({ ...formData, contactMobileNumber: `+94${value}` });
+                        }
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="77 123 4567"
+                      maxLength={9}
+                      pattern="^[0-9]{9}$"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -387,8 +626,8 @@ function Register() {
                   <textarea
                     required
                     rows={3}
-                    value={formData.ol_qualifications}
-                    onChange={(e) => setFormData({ ...formData, ol_qualifications: e.target.value })}
+                    value={formData.olResults}
+                    onChange={(e) => setFormData({ ...formData, olResults: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="e.g., Mathematics - A, Science - B, English - C (Year: 2018)"
                   />
@@ -401,8 +640,8 @@ function Register() {
                   <textarea
                     required
                     rows={3}
-                    value={formData.al_qualifications}
-                    onChange={(e) => setFormData({ ...formData, al_qualifications: e.target.value })}
+                    value={formData.alResults}
+                    onChange={(e) => setFormData({ ...formData, alResults: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="e.g., Combined Mathematics - A, Physics - B, Chemistry - C (Year: 2020, Stream: Physical Science)"
                   />
@@ -414,8 +653,8 @@ function Register() {
                   </label>
                   <textarea
                     rows={3}
-                    value={formData.other_qualifications}
-                    onChange={(e) => setFormData({ ...formData, other_qualifications: e.target.value })}
+                    value={formData.otherQualifications}
+                    onChange={(e) => setFormData({ ...formData, otherQualifications: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Diplomas, certificates, or other relevant qualifications (optional)"
                   />
@@ -428,23 +667,82 @@ function Register() {
               <h3 className="text-lg font-semibold text-emerald-700 mb-4 pb-2 border-b-2 border-emerald-500">
                 Programme Selection
               </h3>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Programme *
-                </label>
-                <select
-                  required
-                  value={formData.program_id}
-                  onChange={(e) => setFormData({ ...formData, program_id: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="">-- Select a programme --</option>
-                  {programs.map((program) => (
-                    <option key={program.id} value={program.id}>
-                      {program.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid md:grid-cols-3 gap-6">
+                {/* Faculty Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Faculty *
+                  </label>
+                  <select
+                    required
+                    value={selectedFaculty}
+                    onChange={(e) => {
+                      setSelectedFaculty(e.target.value);
+                      setSelectedDepartment('');
+                      setFormData({ ...formData, programmeId: '' });
+                    }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="">-- Select Faculty --</option>
+                    {faculties.map((faculty) => (
+                      <option key={faculty.id} value={faculty.id}>
+                        {faculty.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Department Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Department *
+                  </label>
+                  <select
+                    required
+                    value={selectedDepartment}
+                    onChange={(e) => {
+                      setSelectedDepartment(e.target.value);
+                      setFormData({ ...formData, programmeId: '' });
+                    }}
+                    disabled={!selectedFaculty}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">-- Select Department --</option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.departmentName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Programme Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Programme *
+                  </label>
+                  <select
+                    required
+                    value={formData.programmeId}
+                    onChange={(e) => setFormData({ ...formData, programmeId: e.target.value })}
+                    disabled={!selectedDepartment}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">-- Select Programme --</option>
+                    {programs.map((program) => (
+                      <option key={program.id} value={program.id}>
+                        {program.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Helper text */}
+              <div className="mt-4 p-4 bg-emerald-50 rounded-lg">
+                <p className="text-sm text-emerald-700">
+                  <strong>Selection Guide:</strong> First select your Faculty, then choose the Department within that Faculty, and finally select your desired Programme.
+                </p>
               </div>
             </div>
 
@@ -463,14 +761,14 @@ function Register() {
                       type="file"
                       required
                       accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleFileChange('nic_document', e.target.files?.[0] || null)}
+                      onChange={(e) => handleFileChange('nicDocument', e.target.files?.[0] || null)}
                       className="hidden"
                       id="nic-document"
                     />
                     <label htmlFor="nic-document" className="cursor-pointer">
                       <Upload className="mx-auto text-gray-400 mb-2" size={40} />
                       <p className="text-sm text-gray-600 mb-1">
-                        {documents.nic_document ? documents.nic_document.name : 'Click to upload NIC'}
+                        {documents.nicDocument ? documents.nicDocument.name : 'Click to upload NIC'}
                       </p>
                       <p className="text-xs text-gray-400">PDF, JPG, PNG</p>
                     </label>
@@ -486,14 +784,14 @@ function Register() {
                       type="file"
                       required
                       accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleFileChange('birth_certificate', e.target.files?.[0] || null)}
+                      onChange={(e) => handleFileChange('birthCertificate', e.target.files?.[0] || null)}
                       className="hidden"
                       id="birth-certificate"
                     />
                     <label htmlFor="birth-certificate" className="cursor-pointer">
                       <Upload className="mx-auto text-gray-400 mb-2" size={40} />
                       <p className="text-sm text-gray-600 mb-1">
-                        {documents.birth_certificate ? documents.birth_certificate.name : 'Click to upload certificate'}
+                        {documents.birthCertificate ? documents.birthCertificate.name : 'Click to upload certificate'}
                       </p>
                       <p className="text-xs text-gray-400">PDF, JPG, PNG</p>
                     </label>
@@ -509,14 +807,14 @@ function Register() {
                       type="file"
                       required
                       accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleFileChange('qualification_certificate', e.target.files?.[0] || null)}
+                      onChange={(e) => handleFileChange('qualificationCertificates', e.target.files?.[0] || null)}
                       className="hidden"
                       id="qualification-certificate"
                     />
                     <label htmlFor="qualification-certificate" className="cursor-pointer">
                       <Upload className="mx-auto text-gray-400 mb-2" size={40} />
                       <p className="text-sm text-gray-600 mb-1">
-                        {documents.qualification_certificate ? documents.qualification_certificate.name : 'Click to upload certificates'}
+                        {documents.qualificationCertificates ? documents.qualificationCertificates.name : 'Click to upload certificates'}
                       </p>
                       <p className="text-xs text-gray-400">PDF, JPG, PNG</p>
                     </label>
@@ -532,14 +830,14 @@ function Register() {
                       type="file"
                       required
                       accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => handleFileChange('payment_slip', e.target.files?.[0] || null)}
+                      onChange={(e) => handleFileChange('paymentSlip', e.target.files?.[0] || null)}
                       className="hidden"
                       id="payment-slip"
                     />
                     <label htmlFor="payment-slip" className="cursor-pointer">
                       <Upload className="mx-auto text-gray-400 mb-2" size={40} />
                       <p className="text-sm text-gray-600 mb-1">
-                        {documents.payment_slip ? documents.payment_slip.name : 'Click to upload payment slip'}
+                        {documents.paymentSlip ? documents.paymentSlip.name : 'Click to upload payment slip'}
                       </p>
                       <p className="text-xs text-gray-400">PDF, JPG, PNG</p>
                     </label>

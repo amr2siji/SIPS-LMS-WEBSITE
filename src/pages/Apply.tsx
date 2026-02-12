@@ -1,39 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Send, CheckCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { SEO } from '../components/SEO';
 
-interface Program {
-  id: string;
-  name: string;
-}
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+// Hardcoded program list for inquiry form (public page)
+const PROGRAMS = [
+  'BSc in Computer Science',
+  'BSc in Software Engineering',
+  'BSc in Information Technology',
+  'BSc in Data Science',
+  'BSc in Cyber Security',
+  'Diploma in Computer Science',
+  'Diploma in Software Engineering',
+  'Certificate in Web Development',
+  'Certificate in Mobile App Development',
+  'IBM Professional Certifications'
+];
 
 export function Apply() {
-  const [programs, setPrograms] = useState<Program[]>([]);
   const [formData, setFormData] = useState({
-    name: '',
+    fullName: '',
     email: '',
-    phone: '',
-    program_id: '',
+    phoneNumber: '',
+    program: '',
+    message: ''
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    loadPrograms();
-  }, []);
-
-  const loadPrograms = async () => {
-    const { data } = await supabase
-      .from('programs')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('name');
-
-    if (data) {
-      setPrograms(data);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,17 +36,24 @@ export function Apply() {
     setError('');
 
     try {
-      // Temporary workaround for type mismatch - database types need regeneration
-      const { error } = await (supabase as any)
-        .from('applications')
-        .insert([formData]);
+      const response = await fetch(`${API_BASE_URL}/api/public/inquiry/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      setSuccess(true);
-      setFormData({ name: '', email: '', phone: '', program_id: '' });
-    } catch (err) {
-      setError('Failed to submit application. Please try again.');
+      if (response.ok && data.statusCode === '000') {
+        setSuccess(true);
+        setFormData({ fullName: '', email: '', phoneNumber: '', program: '', message: '' });
+      } else {
+        throw new Error(data.message || 'Failed to submit inquiry');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit inquiry. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -61,6 +63,11 @@ export function Apply() {
   if (success) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+        <SEO 
+          title="Thank You for Your Inquiry | SIPS - Steller Institute of Professional Studies"
+          description="Thank you for your interest in SIPS programmes. Our admissions team will contact you shortly."
+          noindex={true}
+        />
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <CheckCircle className="text-green-500 mx-auto mb-4" size={64} />
           <h2 className="text-3xl font-bold text-gray-900 mb-4">Inquiry Submitted!</h2>
@@ -80,6 +87,12 @@ export function Apply() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <SEO 
+        title="Apply Now - Submit Your Inquiry | SIPS - Steller Institute of Professional Studies"
+        description="Apply for SIPS programmes in Sri Lanka. Submit your inquiry for IBM certifications, professional certificates, and quality education programs. Join SIPS today and transform your career."
+        keywords="apply SIPS, SIPS application, inquiry form, enroll SIPS, admission Sri Lanka, apply IBM certification, join SIPS, SIPS admission"
+        canonical="https://www.sips.edu.lk/apply"
+      />
       <section
         className="relative h-[300px] flex items-center justify-center text-white"
         style={{
@@ -106,8 +119,8 @@ export function Apply() {
               <input
                 type="text"
                 required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 placeholder="Enter your full name"
               />
@@ -134,8 +147,8 @@ export function Apply() {
               <input
                 type="tel"
                 required
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 placeholder="+94 XX XXX XXXX"
               />
@@ -147,17 +160,30 @@ export function Apply() {
               </label>
               <select
                 required
-                value={formData.program_id}
-                onChange={(e) => setFormData({ ...formData, program_id: e.target.value })}
+                value={formData.program}
+                onChange={(e) => setFormData({ ...formData, program: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="">-- Select a program --</option>
-                {programs.map((program) => (
-                  <option key={program.id} value={program.id}>
-                    {program.name}
+                {PROGRAMS.map((program) => (
+                  <option key={program} value={program}>
+                    {program}
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Message (Optional)
+              </label>
+              <textarea
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="Tell us more about your inquiry..."
+              />
             </div>
 
             {error && (

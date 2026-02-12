@@ -1,9 +1,16 @@
 import { Link } from 'react-router-dom';
 import { Award, Users, BookOpen, GraduationCap, Target, Heart, Lightbulb } from 'lucide-react';
+import { SEO } from '../components/SEO';
 
 export function Home() {
   return (
     <div className="min-h-screen">
+      <SEO 
+        title="SIPS - Steller Institute of Professional Studies | Quality Education & IBM Certifications in Sri Lanka"
+        description="SIPS is a premier educational institution in Galle, Sri Lanka offering quality higher education programs, IBM Innovation Centre certifications, professional certificates in research methodology, and career development courses. Learn Today. Lead Tomorrow."
+        keywords="SIPS, SIPS Sri Lanka, SIPS Galle, Steller Institute of Professional Studies, education in Galle, higher education Sri Lanka, IBM certifications Sri Lanka, IBM ICE Sri Lanka, professional courses Sri Lanka, certificate programs, research methodology, career development, online learning Sri Lanka, blended learning, quality education"
+        canonical="https://www.sips.edu.lk/"
+      />
       <section
         className="relative pb-8 md:pb-64 pt-32 flex flex-col items-center justify-center text-white animate-fade-in"
         style={{
@@ -144,6 +151,79 @@ export function Home() {
               <h3 className="text-xl font-bold text-gray-900 mb-3">Our Partners</h3>
               <p className="text-gray-700 text-justify">
                 Strong partnerships with leading corporations and institutions worldwide, providing students with excellent opportunities.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Our Partners Section */}
+      <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16 animate-fade-in-up">
+            <h2 className="text-5xl font-bold text-gray-900 mb-4">Our Partners</h2>
+            <div className="w-32 h-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 mx-auto mb-6"></div>
+            <p className="text-xl text-gray-700 max-w-3xl mx-auto font-medium">
+              We collaborate with leading global organizations to provide world-class educational opportunities and industry certifications.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap justify-center items-center gap-16 md:gap-20 mb-16">
+            {/* IBM Logo */}
+            <div className="group animate-fade-in-up animation-delay-100">
+              <div className="bg-gradient-to-br from-white to-gray-50 p-12 md:p-16 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-3 border-4 border-gray-200 hover:border-emerald-300 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/30 to-blue-50/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <img 
+                  src="/partners/IBM logo..jpeg" 
+                  alt="IBM - International Business Machines Corporation" 
+                  className="h-32 md:h-40 w-auto object-contain transition-all duration-500 group-hover:scale-110 relative z-10"
+                  title="IBM Innovation Centre for Education Partner"
+                />
+                <div className="mt-4 text-center">
+                  <p className="text-sm font-semibold text-gray-600 group-hover:text-emerald-700 transition-colors">
+                    Innovation Centre Partner
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Certiport Logo */}
+            <div className="group animate-fade-in-up animation-delay-200">
+              <div className="bg-gradient-to-br from-white to-gray-50 p-12 md:p-16 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-3 border-4 border-gray-200 hover:border-emerald-300 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/30 to-blue-50/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <img 
+                  src="/partners/Certiport logo.svg" 
+                  alt="Certiport - A Pearson VUE Business" 
+                  className="h-32 md:h-40 w-auto object-contain transition-all duration-500 group-hover:scale-110 relative z-10"
+                  title="Certiport Certification Partner"
+                />
+                <div className="mt-4 text-center">
+                  <p className="text-sm font-semibold text-gray-600 group-hover:text-emerald-700 transition-colors">
+                    Certification Partner
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Partnership Benefits */}
+          <div className="mt-16 grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-8 rounded-xl shadow-lg animate-fade-in-up animation-delay-300 hover:scale-105 hover:shadow-xl transition-all duration-300 border-2 border-emerald-200">
+              <h4 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
+                <Award className="text-emerald-700 mr-3" size={28} />
+                Industry Certifications
+              </h4>
+              <p className="text-gray-700 text-base leading-relaxed">
+                Access to globally recognized certifications that enhance your career prospects and professional credibility.
+              </p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-8 rounded-xl shadow-lg animate-fade-in-up animation-delay-400 hover:scale-105 hover:shadow-xl transition-all duration-300 border-2 border-emerald-200">
+              <h4 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
+                <Users className="text-emerald-700 mr-3" size={28} />
+                Real-World Experience
+              </h4>
+              <p className="text-gray-700 text-base leading-relaxed">
+                Collaborate with industry leaders and gain hands-on experience with cutting-edge technologies and methodologies.
               </p>
             </div>
           </div>

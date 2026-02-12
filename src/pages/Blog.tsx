@@ -1,5 +1,6 @@
 import { ArrowRight, Search, Tag, Calendar, MapPin, Clock, X } from 'lucide-react';
 import { useState } from 'react';
+import { SEO } from '../components/SEO';
 
 export function Blog() {
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -8,81 +9,52 @@ export function Blog() {
   const newsAndEvents = [
     {
       id: 1,
-      title: 'Annual Academic Excellence Awards Ceremony 2024',
-      excerpt: 'Join us in celebrating outstanding achievements of our students and faculty members at this prestigious annual event recognizing academic excellence and innovation.',
+      title: 'SIPS Partners with IBM Innovation Centre for Education (IBM ICE)',
+      excerpt: 'In today\'s fast-changing digital economy, academic degrees alone are no longer enough. SIPS proudly announces its partnership with IBM ICE to develop industry-ready talent through structured, hands-on learning in emerging technologies.',
       author: 'SIPS Administration',
-      date: 'November 15, 2024',
-      category: 'Event',
-      image: 'https://images.pexels.com/photos/1157557/pexels-photo-1157557.jpeg?auto=compress&cs=tinysrgb&w=800',
-      time: '6:00 PM - 9:00 PM',
-      location: 'SIPS Main Auditorium',
+      date: 'January 2026',
+      category: 'News',
+      image: '/partners/IBM logo..jpeg',
       featured: true,
-      type: 'Upcoming Event'
-    },
-    {
-      id: 2,
-      title: 'New Partnership with Leading Tech Companies Announced',
-      excerpt: 'SIPS expands industry collaboration with major technology firms to provide students with enhanced internship opportunities and real-world project experience.',
-      author: 'Communications Team',
-      date: 'November 8, 2024',
-      category: 'News',
-      image: 'https://images.pexels.com/photos/3184296/pexels-photo-3184296.jpeg?auto=compress&cs=tinysrgb&w=800',
       type: 'Latest News',
-      featured: false
-    },
-    {
-      id: 3,
-      title: 'Career Fair 2024: Connect with Top Employers',
-      excerpt: 'Meet representatives from over 50 leading companies across various industries. Network, explore career opportunities, and take the next step in your professional journey.',
-      author: 'Career Services',
-      date: 'November 22, 2024',
-      category: 'Event',
-      image: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=800',
-      time: '10:00 AM - 4:00 PM',
-      location: 'University Convention Center',
-      type: 'Upcoming Event',
-      featured: false
-    },
-    {
-      id: 4,
-      title: 'Student Innovation Showcase: Celebrating Creativity',
-      excerpt: 'Witness groundbreaking projects and innovative solutions developed by our talented students. Vote for your favorite projects and win exciting prizes.',
-      author: 'Student Affairs',
-      date: 'December 5, 2024',
-      category: 'Event',
-      image: 'https://images.pexels.com/photos/3184338/pexels-photo-3184338.jpeg?auto=compress&cs=tinysrgb&w=800',
-      time: '2:00 PM - 6:00 PM',
-      location: 'Innovation Hub',
-      type: 'Upcoming Event',
-      featured: false
-    },
-    {
-      id: 5,
-      title: 'SIPS Ranks Among Top Educational Institutions in Sri Lanka',
-      excerpt: 'Latest education rankings place SIPS in the top tier for quality education, student satisfaction, and career outcomes, reinforcing our commitment to excellence.',
-      author: 'Public Relations',
-      date: 'November 3, 2024',
-      category: 'News',
-      image: 'https://images.pexels.com/photos/3184339/pexels-photo-3184339.jpeg?auto=compress&cs=tinysrgb&w=800',
-      type: 'Latest News',
-      featured: false
-    },
-    {
-      id: 6,
-      title: 'Guest Lecture: Industry Leaders Share Insights',
-      excerpt: 'Renowned industry experts will share their experiences and insights on emerging trends, career development, and entrepreneurship in an interactive session.',
-      author: 'Academic Affairs',
-      date: 'November 28, 2024',
-      category: 'Event',
-      image: 'https://images.pexels.com/photos/1438072/pexels-photo-1438072.jpeg?auto=compress&cs=tinysrgb&w=800',
-      time: '3:00 PM - 5:00 PM',
-      location: 'Lecture Hall A',
-      type: 'Upcoming Event',
-      featured: false
+      fullContent: `<div class="space-y-4">
+        <h3 class="text-2xl font-bold text-gray-900 mb-4">SIPS Partners with IBM Innovation Centre for Education (IBM ICE)</h3>
+        
+        <p class="text-gray-700 leading-relaxed">In today's fast-changing digital economy, academic degrees alone are no longer enough. Employers are looking for graduates who can apply knowledge, work with real tools, and adapt quickly to industry environments. This is where industry certifications play a critical role.</p>
+        
+        <p class="text-gray-700 leading-relaxed">The IBM Innovation Centre for Education (IBM ICE) is a global initiative by IBM that focuses on developing industry-ready talent through structured, hands-on learning in emerging technologies.</p>
+        
+        <p class="text-gray-700 leading-relaxed">Steller Institute of Professional Studies (SIPS) proudly presents the partnership entered with IBM ICE which enabled SIPS to:</p>
+        
+        <ul class="list-disc list-inside space-y-2 text-gray-700 ml-4">
+          <li>Address real industry skill gaps</li>
+          <li>Prepare students for future job roles</li>
+          <li>Blend theory with deep practical exposure</li>
+        </ul>
+        
+        <h4 class="text-xl font-bold text-gray-900 mt-6 mb-3">Why IBM ICE Is Different</h4>
+        
+        <p class="text-gray-700 leading-relaxed">Unlike conventional training programs, IBM ICE emphasizes:</p>
+        
+        <ul class="list-disc list-inside space-y-2 text-gray-700 ml-4">
+          <li>Applied learning</li>
+          <li>Industry use cases</li>
+          <li>Performance-based assessments</li>
+          <li>Continuous curriculum updates</li>
+        </ul>
+        
+        <p class="text-gray-700 leading-relaxed mt-4">IBM ICE courses are designed to help non-technical students become technology-aware, digitally fluent, and industry-relevant in their domain.</p>
+        
+        <div class="bg-blue-50 p-6 rounded-xl border-l-4 border-blue-600 my-6">
+          <p class="text-gray-800 leading-relaxed"><strong>Industry Recognition:</strong> A certification from a trusted global brand like IBM reassures recruiters of a candidate's skills and practical exposure. The IBM name carries strong industry recognition and serves as a clear marker of job readiness.</p>
+        </div>
+        
+        <p class="text-gray-700 leading-relaxed">SIPS is extremely happy to present this programme portfolio which can keep learners aligned with current and emerging technologies which can assist in boosting their professional profile from a very young age. This will certainly add a clear advancement in placing our learners among the top in the job market irrespective of the field of study.</p>
+      </div>`
     }
   ];
 
-  const categories = ['All', 'News', 'Event'];
+  const categories = ['All', 'News'];
 
   const filteredItems = selectedCategory === 'All' 
     ? newsAndEvents 
@@ -90,6 +62,12 @@ export function Blog() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <SEO 
+        title="News & Events - Latest Updates from SIPS | Steller Institute of Professional Studies"
+        description="Stay updated with the latest news and events from SIPS (Steller Institute of Professional Studies) in Sri Lanka. Learn about our IBM ICE partnership, new programmes, student achievements, educational events, and upcoming activities in professional education."
+        keywords="SIPS news, SIPS events, education news Sri Lanka, IBM partnership news, SIPS updates, student achievements, programme announcements, educational events Galle, SIPS blog"
+        canonical="https://www.sips.edu.lk/blog"
+      />
       {/* Hero Section */}
       <section
         className="relative h-[500px] flex items-center justify-center text-white overflow-hidden"
@@ -166,11 +144,15 @@ export function Blog() {
             </div>
             <div className="bg-white rounded-2xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow">
               <div className="grid lg:grid-cols-2 gap-0">
-                <div className="relative h-96 lg:h-auto overflow-hidden group">
+                <div className="relative h-96 lg:h-auto overflow-hidden group bg-white flex items-center justify-center p-8">
                   <img
                     src={filteredItems[0].image}
                     alt={filteredItems[0].title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    className={`${
+                      filteredItems[0].image.includes('IBM') 
+                        ? 'w-auto h-48 object-contain' 
+                        : 'w-full h-full object-cover'
+                    } group-hover:scale-110 transition-transform duration-700`}
                   />
                   <div className="absolute top-4 left-4">
                     <span className="bg-amber-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg uppercase">
@@ -196,7 +178,7 @@ export function Blog() {
                   </p>
                   
                   {/* Event Details */}
-                  {filteredItems[0].category === 'Event' && (
+                  {filteredItems[0].category === 'Event' && (filteredItems[0] as any).time && (
                     <div className="space-y-2 mb-6 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-3 rounded-r-lg">
                       <div className="flex items-center gap-2 text-gray-700">
                         <Calendar size={18} className="text-emerald-600" />
@@ -204,11 +186,11 @@ export function Blog() {
                       </div>
                       <div className="flex items-center gap-2 text-gray-700">
                         <Clock size={18} className="text-emerald-600" />
-                        <span className="font-medium">{filteredItems[0].time}</span>
+                        <span className="font-medium">{(filteredItems[0] as any).time}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-700">
                         <MapPin size={18} className="text-emerald-600" />
-                        <span className="font-medium">{filteredItems[0].location}</span>
+                        <span className="font-medium">{(filteredItems[0] as any).location}</span>
                       </div>
                     </div>
                   )}
@@ -273,19 +255,19 @@ export function Blog() {
                   </p>
                   
                   {/* Event Details for Cards */}
-                  {item.category === 'Event' && (
+                  {item.category === 'Event' && (item as any).time && (
                     <div className="space-y-1 mb-4 text-xs text-gray-600">
                       <div className="flex items-center gap-1">
                         <Calendar size={14} className="text-emerald-600" />
                         <span>{item.date}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Clock size={14} className="text-emerald-600" />
-                        <span>{item.time}</span>
+                        <Clock size={14} className="text-purple-600" />
+                        <span>{(item as any).time}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <MapPin size={14} className="text-emerald-600" />
-                        <span>{item.location}</span>
+                        <MapPin size={14} className="text-purple-600" />
+                        <span>{(item as any).location}</span>
                       </div>
                     </div>
                   )}
@@ -346,7 +328,7 @@ export function Blog() {
             {/* Modal Content */}
             <div className="p-6 md:p-8">
               {/* Event Details */}
-              {selectedItem.category === 'Event' && (
+              {selectedItem.category === 'Event' && (selectedItem as any).time && (
                 <div className="mb-6 grid md:grid-cols-3 gap-4 bg-emerald-50 p-4 rounded-lg border-l-4 border-emerald-500">
                   <div className="flex items-center gap-2">
                     <Calendar size={20} className="text-emerald-600" />
@@ -359,14 +341,14 @@ export function Blog() {
                     <Clock size={20} className="text-emerald-600" />
                     <div>
                       <p className="text-xs text-gray-600 font-medium">Time</p>
-                      <p className="text-sm font-bold text-gray-900">{selectedItem.time}</p>
+                      <p className="text-sm font-bold text-gray-900">{(selectedItem as any).time}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin size={20} className="text-emerald-600" />
                     <div>
                       <p className="text-xs text-gray-600 font-medium">Location</p>
-                      <p className="text-sm font-bold text-gray-900">{selectedItem.location}</p>
+                      <p className="text-sm font-bold text-gray-900">{(selectedItem as any).location}</p>
                     </div>
                   </div>
                 </div>
@@ -382,35 +364,41 @@ export function Blog() {
 
               {/* Description */}
               <div className="prose max-w-none">
-                <p className="text-gray-700 text-lg leading-relaxed mb-6">
-                  {selectedItem.excerpt}
-                </p>
-                
-                {/* Additional Content */}
-                <div className="text-gray-700 leading-relaxed space-y-4">
-                  <p>
-                    {selectedItem.category === 'Event' 
-                      ? 'This is an exciting opportunity to engage with our community and participate in meaningful activities. We encourage all interested participants to mark their calendars and join us for this special occasion.'
-                      : 'This development represents a significant milestone in our continued commitment to providing the best educational experience for our students. We remain dedicated to innovation and excellence in all our endeavors.'}
-                  </p>
-                  
-                  {selectedItem.category === 'Event' && (
-                    <>
-                      <h3 className="text-xl font-bold text-gray-900 mt-6 mb-3">What to Expect</h3>
-                      <ul className="list-disc list-inside space-y-2 text-gray-700">
-                        <li>Engaging presentations and activities</li>
-                        <li>Networking opportunities with peers and professionals</li>
-                        <li>Refreshments and interactive sessions</li>
-                        <li>Q&A with speakers and organizers</li>
-                      </ul>
-                      
-                      <h3 className="text-xl font-bold text-gray-900 mt-6 mb-3">Registration</h3>
+                {(selectedItem as any).fullContent ? (
+                  <div dangerouslySetInnerHTML={{ __html: (selectedItem as any).fullContent }} />
+                ) : (
+                  <>
+                    <p className="text-gray-700 text-lg leading-relaxed mb-6">
+                      {selectedItem.excerpt}
+                    </p>
+                    
+                    {/* Additional Content */}
+                    <div className="text-gray-700 leading-relaxed space-y-4">
                       <p>
-                        To register for this event, please contact the administration office or send an email with your details. Limited seats available, so early registration is recommended.
+                        {selectedItem.category === 'Event' 
+                          ? 'This is an exciting opportunity to engage with our community and participate in meaningful activities. We encourage all interested participants to mark their calendars and join us for this special occasion.'
+                          : 'This development represents a significant milestone in our continued commitment to providing the best educational experience for our students. We remain dedicated to innovation and excellence in all our endeavors.'}
                       </p>
-                    </>
-                  )}
-                </div>
+                      
+                      {selectedItem.category === 'Event' && (
+                        <>
+                          <h3 className="text-xl font-bold text-gray-900 mt-6 mb-3">What to Expect</h3>
+                          <ul className="list-disc list-inside space-y-2 text-gray-700">
+                            <li>Engaging presentations and activities</li>
+                            <li>Networking opportunities with peers and professionals</li>
+                            <li>Refreshments and interactive sessions</li>
+                            <li>Q&A with speakers and organizers</li>
+                          </ul>
+                          
+                          <h3 className="text-xl font-bold text-gray-900 mt-6 mb-3">Registration</h3>
+                          <p>
+                            To register for this event, please contact the administration office or send an email with your details. Limited seats available, so early registration is recommended.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Action Buttons */}

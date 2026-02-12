@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, DollarSign, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { studentProgramService } from '../../services/studentProgramService';
 
 interface Payment {
   id: string;
@@ -17,8 +17,15 @@ interface Payment {
   intake_name: string;
 }
 
+interface EnrolledIntake {
+  id: number;
+  intakeName: string;
+  programName: string;
+  programId: number;
+}
+
 export function StudentPayments() {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,65 +35,55 @@ export function StudentPayments() {
   const [paymentType, setPaymentType] = useState<'complete' | 'installment'>('complete');
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [faculties, setFaculties] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [programs, setPrograms] = useState<any[]>([]);
-  const [intakes, setIntakes] = useState<any[]>([]);
-  const [selectedFaculty, setSelectedFaculty] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedPaymentProgram, setSelectedPaymentProgram] = useState('');
+  const [enrolledIntakes, setEnrolledIntakes] = useState<EnrolledIntake[]>([]);
   const [selectedIntake, setSelectedIntake] = useState('');
 
   useEffect(() => {
-    if (profile) {
+    if (user) {
       loadPayments();
-      loadFaculties();
+      loadEnrolledIntakes();
     }
-  }, [profile]);
+  }, [user]);
 
   const loadPayments = async () => {
     try {
       setLoading(true);
       
-      if (!profile?.id) {
+      if (!user?.nic) {
         setLoading(false);
         return;
       }
 
-      const { data: paymentsData, error } = await supabase
-        .from('payments')
-        .select(`
-          id,
-          payment_type,
-          proof_file_url,
-          status,
-          rejection_reason,
-          created_at,
-          program_id,
-          intake_id,
-          programs:program_id (
-            name
-          ),
-          intakes:intake_id (
-            intake_name
-          )
-        `)
-        .eq('student_id', profile.id)
-        .order('created_at', { ascending: false });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/student/payments?studentNic=${encodeURIComponent(user.nic)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Failed to fetch payments');
+      }
 
-      const formattedPayments: Payment[] = (paymentsData || []).map((p: any) => ({
+      const paymentsData = await response.json();
+
+      const formattedPayments: Payment[] = paymentsData.map((p: any) => ({
         id: p.id,
-        payment_type: p.payment_type,
-        proof_file_url: p.proof_file_url,
+        payment_type: p.paymentType,
+        proof_file_url: p.proofFileUrl,
         status: p.status,
-        rejection_reason: p.rejection_reason,
-        created_at: p.created_at,
-        program_id: p.program_id,
-        program_name: p.programs?.name || 'Unknown Program',
-        intake_id: p.intake_id,
-        intake_name: p.intakes?.intake_name || 'Unknown Intake',
+        rejection_reason: p.rejectionReason,
+        created_at: p.createdAt,
+        program_id: p.programId,
+        program_name: p.programName || 'Unknown Program',
+        intake_id: p.intakeId,
+        intake_name: p.intakeName || 'Unknown Intake',
       }));
 
       setPayments(formattedPayments);
@@ -97,91 +94,23 @@ export function StudentPayments() {
     }
   };
 
-  const loadFaculties = async () => {
+  const loadEnrolledIntakes = async () => {
     try {
-      const { data: facultiesData, error: facultiesError } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-
-      if (facultiesError) throw facultiesError;
-      setFaculties(facultiesData || []);
+      const result = await studentProgramService.getMyPrograms();
+      if (result.success && result.data) {
+        // Map enrolled programs to intakes
+        const intakes: EnrolledIntake[] = result.data
+          .filter(program => program.intakeId) // Only programs with intakes
+          .map(program => ({
+            id: program.intakeId!,
+            intakeName: program.intakeName || 'Unknown Intake',
+            programName: program.programName,
+            programId: program.id
+          }));
+        setEnrolledIntakes(intakes);
+      }
     } catch (error) {
-      console.error('Error loading faculties:', error);
-    }
-  };
-
-  const handleFacultyChange = async (facultyId: string) => {
-    setSelectedFaculty(facultyId);
-    setSelectedDepartment('');
-    setSelectedPaymentProgram('');
-    setSelectedIntake('');
-    setDepartments([]);
-    setPrograms([]);
-    setIntakes([]);
-
-    if (!facultyId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('departments')
-        .select('id, name')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setDepartments(data || []);
-    } catch (error) {
-      console.error('Error loading departments:', error);
-    }
-  };
-
-  const handleDepartmentChange = async (departmentId: string) => {
-    setSelectedDepartment(departmentId);
-    setSelectedPaymentProgram('');
-    setSelectedIntake('');
-    setPrograms([]);
-    setIntakes([]);
-
-    if (!departmentId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('programs')
-        .select('id, name')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setPrograms(data || []);
-    } catch (error) {
-      console.error('Error loading programs:', error);
-    }
-  };
-
-  const handleProgramChange = async (programId: string) => {
-    setSelectedPaymentProgram(programId);
-    setSelectedIntake('');
-    setIntakes([]);
-
-    if (!programId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('intakes')
-        .select('id, intake_name, intake_year, intake_month')
-        .eq('program_id', programId)
-        .eq('is_active', true)
-        .order('intake_year', { ascending: false })
-        .order('intake_month', { ascending: false });
-
-      if (error) throw error;
-      setIntakes(data || []);
-    } catch (error) {
-      console.error('Error loading intakes:', error);
+      console.error('Error loading enrolled intakes:', error);
     }
   };
 
@@ -197,43 +126,66 @@ export function StudentPayments() {
       return;
     }
 
-    if (!selectedPaymentProgram || !selectedIntake) {
-      alert('Please select program and intake');
+    if (!selectedIntake) {
+      alert('Please select an intake');
+      return;
+    }
+
+    // Find the selected intake to get program ID
+    const intake = enrolledIntakes.find(i => i.id.toString() === selectedIntake);
+    if (!intake) {
+      alert('Invalid intake selection');
       return;
     }
 
     setUploading(true);
 
     try {
-      // Upload file to Supabase Storage
-      const fileExt = paymentFile.name.split('.').pop();
-      const fileName = `${profile?.id}_${Date.now()}.${fileExt}`;
-      const filePath = `payment-proofs/${fileName}`;
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      const { error: uploadError } = await supabase.storage
-        .from('lms-files')
-        .upload(filePath, paymentFile);
+      // Upload file first
+      const formData = new FormData();
+      formData.append('file', paymentFile);
 
-      if (uploadError) throw uploadError;
+      const uploadResponse = await fetch(`${API_BASE_URL}/api/student/payments/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('lms-files')
-        .getPublicUrl(filePath);
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.message || 'Failed to upload file');
+      }
 
       // Create payment record
-      const { error: insertError } = await (supabase
-        .from('payments') as any)
-        .insert({
-          student_id: profile?.id,
-          program_id: selectedPaymentProgram,
-          intake_id: selectedIntake,
-          payment_type: paymentType,
-          proof_file_url: publicUrl,
-          status: 'pending',
-        });
+      const paymentData = {
+        studentNic: user?.nic,
+        programId: intake.programId,
+        intakeId: intake.id,
+        paymentType: paymentType,
+        proofFileUrl: uploadResult.fileUrl
+      };
 
-      if (insertError) throw insertError;
+      const paymentResponse = await fetch(`${API_BASE_URL}/api/student/payments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(paymentData)
+      });
+
+      if (!paymentResponse.ok) {
+        throw new Error('Failed to create payment record');
+      }
 
       alert('Payment proof uploaded successfully!');
       
@@ -241,9 +193,6 @@ export function StudentPayments() {
       setShowUploadForm(false);
       setPaymentFile(null);
       setPaymentType('complete');
-      setSelectedFaculty('');
-      setSelectedDepartment('');
-      setSelectedPaymentProgram('');
       setSelectedIntake('');
       
       // Reload payments
@@ -394,105 +343,51 @@ export function StudentPayments() {
         {/* Upload Form */}
         {showUploadForm && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
+            <div className="bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 p-6 text-white">
               <h2 className="text-2xl font-bold">Upload Payment Proof</h2>
-              <p className="text-blue-100 mt-1">Submit your payment documentation</p>
+              <p className="text-emerald-100 mt-1">Submit your payment documentation for verification</p>
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Program Selection */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-900 mb-3">Select Program for Payment</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Faculty Dropdown */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">Faculty *</label>
-                    <select
-                      value={selectedFaculty}
-                      onChange={(e) => handleFacultyChange(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select Faculty</option>
-                      {faculties.map((faculty) => (
-                        <option key={faculty.id} value={faculty.id}>
-                          {faculty.name}
-                        </option>
-                      ))}
-                    </select>
+              {/* Intake Selection - Simplified */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Select Enrolled Intake *</label>
+                {enrolledIntakes.length === 0 ? (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                    <p className="text-yellow-800 font-medium">No enrolled intakes found</p>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      Please enroll in a program first before uploading payment proof.
+                    </p>
                   </div>
-
-                  {/* Department Dropdown */}
-                  {selectedFaculty && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">Department *</label>
-                      <select
-                        value={selectedDepartment}
-                        onChange={(e) => handleDepartmentChange(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select Department</option>
-                        {departments.map((dept) => (
-                          <option key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Program Dropdown */}
-                  {selectedDepartment && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">Program *</label>
-                      <select
-                        value={selectedPaymentProgram}
-                        onChange={(e) => handleProgramChange(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select Program</option>
-                        {programs.map((program) => (
-                          <option key={program.id} value={program.id}>
-                            {program.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Intake Dropdown */}
-                  {selectedPaymentProgram && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">Intake *</label>
-                      <select
-                        value={selectedIntake}
-                        onChange={(e) => setSelectedIntake(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select Intake</option>
-                        {intakes.map((intake) => (
-                          <option key={intake.id} value={intake.id}>
-                            {intake.intake_name || `${intake.intake_month}/${intake.intake_year}`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <select
+                    value={selectedIntake}
+                    onChange={(e) => setSelectedIntake(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    required
+                  >
+                    <option value="">Select Intake</option>
+                    {enrolledIntakes.map((intake) => (
+                      <option key={intake.id} value={intake.id}>
+                        {intake.intakeName} - {intake.programName}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Payment Type Selection */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-3">Payment Type *</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${paymentType === 'complete' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                  <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${paymentType === 'complete' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200'}`}>
                     <input
                       type="radio"
                       name="paymentType"
                       value="complete"
                       checked={paymentType === 'complete'}
                       onChange={(e) => setPaymentType(e.target.value as 'complete' | 'installment')}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-4 h-4 text-emerald-600"
                     />
                     <div className="ml-3">
                       <span className="font-semibold text-gray-900">Complete Payment</span>
@@ -500,14 +395,14 @@ export function StudentPayments() {
                     </div>
                   </label>
                   
-                  <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${paymentType === 'installment' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                  <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${paymentType === 'installment' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200'}`}>
                     <input
                       type="radio"
                       name="paymentType"
                       value="installment"
                       checked={paymentType === 'installment'}
                       onChange={(e) => setPaymentType(e.target.value as 'complete' | 'installment')}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-4 h-4 text-emerald-600"
                     />
                     <div className="ml-3">
                       <span className="font-semibold text-gray-900">Installment Payment</span>
@@ -549,9 +444,6 @@ export function StudentPayments() {
                     setShowUploadForm(false);
                     setPaymentFile(null);
                     setPaymentType('complete');
-                    setSelectedFaculty('');
-                    setSelectedDepartment('');
-                    setSelectedPaymentProgram('');
                     setSelectedIntake('');
                   }}
                   disabled={uploading}
@@ -562,7 +454,7 @@ export function StudentPayments() {
                 <button
                   onClick={handlePaymentSubmit}
                   disabled={uploading || !paymentFile || !selectedIntake}
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg hover:from-emerald-700 hover:to-emerald-800 font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                 >
                   {uploading ? 'Uploading...' : 'Submit Payment'}
                 </button>
@@ -571,11 +463,11 @@ export function StudentPayments() {
           </div>
         )}
 
-        {/* Payment History Table */}
+        {/* Payment History */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 p-6 text-white">
+          <div className="bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 p-6 text-white">
             <h2 className="text-2xl font-bold">Payment History</h2>
-            <p className="text-indigo-100 mt-1">Track your submitted payment proofs and their status</p>
+            <p className="text-emerald-100 mt-1">Track your submitted payment proofs and their status</p>
           </div>
 
           <div className="overflow-x-auto">
@@ -606,8 +498,8 @@ export function StudentPayments() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {payments.map((payment) => (
-                    <>
-                      <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+                    <React.Fragment key={payment.id}>
+                      <tr className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {new Date(payment.created_at).toLocaleDateString('en-US', {
                             year: 'numeric',
@@ -651,7 +543,7 @@ export function StudentPayments() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>

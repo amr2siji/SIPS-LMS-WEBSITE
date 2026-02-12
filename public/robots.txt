@@ -1,0 +1,17 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /programmes
+Allow: /about
+Allow: /blog
+Allow: /apply
+Disallow: /login
+Disallow: /register
+Disallow: /dashboard
+Disallow: /admin
+
+# Crawl-delay
+Crawl-delay: 10
+
+# Sitemap
+Sitemap: https://www.sips.edu.lk/sitemap.xml

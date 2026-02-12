@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, BarChart3, TrendingUp, Users, DollarSign, BookOpen, Download, Calendar } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 
 export function ViewReports() {
   const navigate = useNavigate();
@@ -23,38 +22,42 @@ export function ViewReports() {
     try {
       setLoading(true);
       
-      // Fetch students data
-      const { data: students } = await supabase
-        .from('students')
-        .select('status, enrollment_date');
+      // Using dummy data (Supabase removed)
+      // const { data: students } = await supabase
+      //   .from('students')
+      //   .select('status, enrollment_date');
 
-      // Fetch payments data
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('amount, status')
-        .eq('status', 'verified');
+      // const { data: payments } = await supabase
+      //   .from('payments')
+      //   .select('amount, status')
+      //   .eq('status', 'verified');
 
-      // Fetch courses data
-      const { data: courses } = await supabase
-        .from('courses')
-        .select('id')
-        .eq('is_active', true);
+      // const { data: courses } = await supabase
+      //   .from('courses')
+      //   .select('id')
+      //   .eq('is_active', true);
 
-      // Fetch applications data
-      const { data: applications } = await supabase
-        .from('applications')
-        .select('id')
-        .eq('status', 'pending');
+      // const { data: applications } = await supabase
+      //   .from('applications')
+      //   .select('id')
+      //   .eq('status', 'pending');
 
-      const totalRevenue = payments?.reduce((sum, p: any) => sum + p.amount, 0) || 0;
-      const activeStudents = students?.filter((s: any) => s.status === 'active').length || 0;
+      // Dummy data for demonstration
+      const students = null;
+      const payments = null;
+      const courses = null;
+      const applications = null;
+
+      // Use dummy values since no backend API exists yet
+      const totalRevenue = 150000;
+      const activeStudents = 45;
 
       setStats({
-        totalStudents: students?.length || 0,
+        totalStudents: 62,
         activeStudents,
         totalRevenue,
-        totalCourses: courses?.length || 0,
-        pendingApplications: applications?.length || 0,
+        totalCourses: 8,
+        pendingApplications: 12,
         monthlyEnrollments: [],
       });
     } catch (error) {

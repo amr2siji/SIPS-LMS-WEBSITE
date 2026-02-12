@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Users, BookOpen, FileText, DollarSign, LogOut, GraduationCap, Bell } from 'lucide-react';
+import { Users, BookOpen, FileText, DollarSign, LogOut, GraduationCap, Bell, Building2, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface AdminDashboardData {
@@ -29,25 +29,56 @@ export function AdminDashboard() {
 
   const loadAdminStats = async () => {
     try {
-      // TODO: Replace with real API call when backend is ready
-      // For now, use mock data to display dashboard
-      console.log('Using mock data for admin dashboard - API not implemented yet');
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+      
+      if (!token) {
+        console.error('No authentication token found');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load admin statistics');
+      }
+
+      const stats = await response.json();
+      console.log('Admin stats loaded:', stats);
       
       setDashboardData({
         stats: {
-          totalStudents: 245,
-          activeStudents: 220,
-          dropoutStudents: 25,
-          totalCourses: 18,
-          totalPrograms: 6,
-          pendingApplications: 12,
-          pendingPayments: 8
+          totalStudents: stats.totalStudents || 0,
+          activeStudents: stats.activeStudents || 0,
+          dropoutStudents: stats.dropoutStudents || 0,
+          totalCourses: stats.totalCourses || 0,
+          totalPrograms: stats.totalPrograms || 0,
+          pendingApplications: stats.pendingApplications || 0,
+          pendingPayments: stats.pendingPayments || 0
         }
       });
       
       setLoading(false);
     } catch (error: any) {
       console.error('Error loading admin stats:', error);
+      // Set empty data on error
+      setDashboardData({
+        stats: {
+          totalStudents: 0,
+          activeStudents: 0,
+          dropoutStudents: 0,
+          totalCourses: 0,
+          totalPrograms: 0,
+          pendingApplications: 0,
+          pendingPayments: 0
+        }
+      });
       setLoading(false);
     }
   };
@@ -88,6 +119,14 @@ export function AdminDashboard() {
       badge: null
     },
     {
+      title: 'Academic Structure',
+      description: 'Manage faculties, departments, and programs',
+      icon: Building2,
+      color: 'from-sky-500 to-sky-600',
+      path: '/admin/academic-structure',
+      badge: null
+    },
+    {
       title: 'Review Applications',
       description: 'Process new student applications',
       icon: FileText,
@@ -112,6 +151,14 @@ export function AdminDashboard() {
       badge: null
     },
     {
+      title: 'Intake Management',
+      description: 'Manage intakes and assign modules',
+      icon: Calendar,
+      color: 'from-emerald-500 to-emerald-600',
+      path: '/admin/intake-management',
+      badge: null
+    },
+    {
       title: 'Assignment Management',
       description: 'Create and track assignments',
       icon: FileText,
@@ -124,7 +171,7 @@ export function AdminDashboard() {
       description: 'Schedule and manage examinations',
       icon: BookOpen,
       color: 'from-cyan-500 to-cyan-600',
-      path: '/admin/exam-management',
+      path: '/admin/exams',
       badge: null
     },
     {
@@ -149,14 +196,6 @@ export function AdminDashboard() {
       icon: BookOpen,
       color: 'from-emerald-500 to-emerald-600',
       path: '/admin/lecture-material-management',
-      badge: null
-    },
-    {
-      title: '🔧 Setup Test Data',
-      description: 'Create test users and mock data',
-      icon: FileText,
-      color: 'from-gray-500 to-gray-600',
-      path: '/setup-test-users',
       badge: null
     },
   ];

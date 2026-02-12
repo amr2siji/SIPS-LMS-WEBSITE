@@ -93,18 +93,30 @@ export class ApiService {
                     throw new Error('Resource not found.');
                     
                 case 500:
-                    throw new Error('Server error. Please try again later.');
+                    console.error('Server 500 error details:', data);
+                    throw new Error(data.message || 'Server error. Please try again later.');
                     
                 default:
+                    console.error(`HTTP ${response.status} error details:`, data);
                     throw new Error(data.message || data || 'An error occurred');
             }
         }
 
         // Handle different response formats
         if (typeof data === 'object' && data !== null) {
-            // Standardized backend response format
+            // Standardized backend response format with 'success' field
             if ('success' in data) {
                 return data as ApiResponse<T>;
+            }
+            // Backend response format with 'statusCode' field (e.g., "000" for success)
+            else if ('statusCode' in data) {
+                return {
+                    success: data.statusCode === '000',
+                    message: data.message || 'Request successful',
+                    data: data.data as T,
+                    statusCode: response.status,
+                    timestamp: data.timestamp
+                };
             }
             // Direct data response
             else {
@@ -198,6 +210,19 @@ export class ApiService {
             method: 'PUT',
             headers: this.getAuthHeadersMultipart(),
             body: formData
+        });
+
+        return this.handleResponse<T>(response);
+    }
+
+    /**
+     * PATCH request with JSON body
+     */
+    protected async patch<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
+        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+            method: 'PATCH',
+            headers: this.getAuthHeaders(),
+            body: body ? JSON.stringify(body) : undefined
         });
 
         return this.handleResponse<T>(response);

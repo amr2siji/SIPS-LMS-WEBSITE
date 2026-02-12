@@ -1,57 +1,63 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, FileText, Edit, Trash2, Eye, EyeOff, X } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { examService } from '../../services/examService';
+import { facultyService, departmentService, programService } from '../../services/academicStructureService';
+import { intakeService } from '../../services/intakeService';
+import { intakeModuleService } from '../../services/intakeModuleService';
+import { moduleService } from '../../services/moduleService';
 
 interface Faculty {
-  id: string;
+  id: number;
   name: string;
 }
 
 interface Department {
-  id: string;
-  name: string;
-  faculty_id: string;
+  id: number;
+  departmentName: string;
+  facultyId: number;
 }
 
 interface Program {
-  id: string;
+  id: number;
   name: string;
-  department_id: string;
+  departmentId: number;
 }
 
 interface Intake {
-  id: string;
-  intake_name: string;
-  program_id: string;
+  id: number;
+  intakeCode: string;
+  intakeName: string;
+  intakeYear: number;
+  intakeMonth: number;
+  programId: number;
+  programName?: string;
+  departmentId?: number;
+  departmentName?: string;
+  facultyId?: number;
+  facultyName?: string;
 }
 
 interface Module {
-  id: string;
-  module_code: string;
-  module_name: string;
-  program_id: string;
-  intake_id: string;
+  id: number;
+  moduleCode: string;
+  moduleName: string;
 }
 
 interface Exam {
-  id: string;
-  exam_name: string;
-  description: string;
-  exam_date: string;
-  exam_time: string;
-  duration_minutes: number;
-  max_marks: number;
-  is_published: boolean;
-  module_id: string;
-  intake_id: string;
-  modules?: {
-    module_code: string;
-    module_name: string;
-  };
-  intakes?: {
-    intake_name: string;
-  };
+  id: number;
+  examName: string;
+  description?: string;
+  examDate: string;
+  examTime: string;
+  durationMinutes: number;
+  maxMarks: number;
+  published: boolean;
+  moduleId: number;
+  intakeId: number;
+  moduleCode?: string;
+  moduleName?: string;
+  intakeName?: string;
 }
 
 export function ExamManagement() {
@@ -65,6 +71,27 @@ export function ExamManagement() {
   
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingExamId, setEditingExamId] = useState<number | null>(null);
+  
+  // Custom notification modal states
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationConfig, setNotificationConfig] = useState({
+    type: 'success' as 'success' | 'error' | 'warning' | 'info',
+    title: '',
+    message: '',
+    details: [] as string[]
+  });
+
+  // Custom confirmation modal states
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationConfig, setConfirmationConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    confirmText: 'Confirm',
+    type: 'danger' as 'danger' | 'warning'
+  });
   
   // Filter states
   const [filterFaculty, setFilterFaculty] = useState('all');
@@ -74,19 +101,22 @@ export function ExamManagement() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const pageSize = 9;
+  
   // Dropdown data for filters
   const [filterFaculties, setFilterFaculties] = useState<Faculty[]>([]);
   const [filterDepartments, setFilterDepartments] = useState<Department[]>([]);
   const [filterPrograms, setFilterPrograms] = useState<Program[]>([]);
   const [filterModules, setFilterModules] = useState<Module[]>([]);
   
-  // Form state
+  // Form state - Simplified to 3 steps: Intake → Module → Exam Details
   const [step, setStep] = useState(1);
-  const [selectedFaculty, setSelectedFaculty] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedProgram, setSelectedProgram] = useState('');
-  const [selectedIntake, setSelectedIntake] = useState('');
-  const [selectedModule, setSelectedModule] = useState('');
+  const [selectedIntake, setSelectedIntake] = useState<number | ''>('');
+  const [selectedModule, setSelectedModule] = useState<number | ''>('');
   const [examName, setExamName] = useState('');
   const [examDescription, setExamDescription] = useState('');
   const [examDate, setExamDate] = useState('');
@@ -94,35 +124,42 @@ export function ExamManagement() {
   const [durationMinutes, setDurationMinutes] = useState(120);
   const [maxMarks, setMaxMarks] = useState(100);
 
+  // Helper functions for custom modals
+  const showSuccessNotification = (title: string, message: string, details: string[] = []) => {
+    setNotificationConfig({ type: 'success', title, message, details });
+    setShowNotification(true);
+  };
+
+  const showErrorNotification = (title: string, message: string, details: string[] = []) => {
+    setNotificationConfig({ type: 'error', title, message, details });
+    setShowNotification(true);
+  };
+
+  const showConfirmDialog = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'warning' = 'danger') => {
+    setConfirmationConfig({ title, message, onConfirm, confirmText: 'Confirm', type });
+    setShowConfirmation(true);
+  };
+
   useEffect(() => {
     loadExams();
-    loadFaculties();
+    loadAllIntakes(); // Load all intakes on component mount
+    loadFaculties(); // For filters
     loadFilterFaculties();
   }, []);
 
+  // Reload exams when filters or pagination change
   useEffect(() => {
-    if (selectedFaculty) {
-      loadDepartments(selectedFaculty);
+    if (!loading) {
+      loadExams();
     }
-  }, [selectedFaculty]);
+  }, [filterFaculty, filterDepartment, filterProgram, filterModule, filterStatus, searchTerm, currentPage]);
 
+  // When intake is selected, load modules for that intake
   useEffect(() => {
-    if (selectedDepartment) {
-      loadPrograms(selectedDepartment);
+    if (selectedIntake) {
+      loadModulesForIntake(selectedIntake);
     }
-  }, [selectedDepartment]);
-
-  useEffect(() => {
-    if (selectedProgram) {
-      loadIntakes(selectedProgram);
-    }
-  }, [selectedProgram]);
-
-  useEffect(() => {
-    if (selectedProgram && selectedIntake) {
-      loadModules(selectedProgram, selectedIntake);
-    }
-  }, [selectedProgram, selectedIntake]);
+  }, [selectedIntake]);
 
   // Filter useEffects
   useEffect(() => {
@@ -155,19 +192,30 @@ export function ExamManagement() {
   const loadExams = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('exams')
-        .select(`
-          *,
-          modules (module_code, module_name),
-          intakes (intake_name)
-        `)
-        .order('created_at', { ascending: false });
+      // Build filters for backend
+      const filters: any = {};
+      if (filterFaculty !== 'all') filters.facultyId = Number(filterFaculty);
+      if (filterDepartment !== 'all') filters.departmentId = Number(filterDepartment);
+      if (filterProgram !== 'all') filters.programId = Number(filterProgram);
+      if (filterModule !== 'all') filters.moduleId = Number(filterModule);
+      if (filterStatus !== 'all') filters.published = filterStatus === 'published';
+      if (searchTerm) filters.searchTerm = searchTerm;
 
-      if (error) throw error;
-      setExams(data || []);
+      const response = await examService.getExamsAdmin(currentPage, pageSize, filters);
+      if (response && response.success && response.data) {
+        setExams(response.data.content || []);
+        setTotalPages(response.data.totalPages || 0);
+        setTotalElements(response.data.totalElements || 0);
+      } else {
+        setExams([]);
+        setTotalPages(0);
+        setTotalElements(0);
+      }
     } catch (error) {
       console.error('Error loading exams:', error);
+      setExams([]);
+      setTotalPages(0);
+      setTotalElements(0);
     } finally {
       setLoading(false);
     }
@@ -175,145 +223,180 @@ export function ExamManagement() {
 
   const loadFaculties = async () => {
     try {
-      const { data, error } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFaculties(data || []);
+      const response = await facultyService.getAll();
+      if (response && response.success && response.data) {
+        setFaculties(response.data);
+      } else {
+        setFaculties([]);
+      }
     } catch (error) {
       console.error('Error loading faculties:', error);
+      setFaculties([]);
     }
   };
 
-  const loadDepartments = async (facultyId: string) => {
+  // Load all intakes for Step 1 selection
+  const loadAllIntakes = async () => {
     try {
-      const { data, error } = await supabase
-        .from('departments')
-        .select('id, name, faculty_id')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
+      const token = localStorage.getItem('jwt_token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/intakes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (error) throw error;
-      setDepartments(data || []);
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Raw intake API response:', result);
+        if (result.data && Array.isArray(result.data)) {
+          const mappedIntakes = result.data.map((intake: any) => ({
+            id: intake.id,
+            intakeCode: intake.intakeCode,
+            intakeName: intake.intakeName || `Intake ${intake.intakeYear}-${intake.intakeMonth}`,
+            intakeYear: intake.intakeYear,
+            intakeMonth: intake.intakeMonth,
+            programId: intake.programId,
+            programName: intake.programName,
+            departmentId: intake.departmentId,
+            departmentName: intake.departmentName,
+            facultyId: intake.facultyId,
+            facultyName: intake.facultyName
+          }));
+          console.log('Mapped intakes for exam creation:', mappedIntakes);
+          setIntakes(mappedIntakes);
+        } else {
+          console.warn('No intakes data in response');
+          setIntakes([]);
+        }
+      } else {
+        console.error('Failed to load intakes:', response.status);
+        setIntakes([]);
+      }
+    } catch (error) {
+      console.error('Error loading all intakes:', error);
+      setIntakes([]);
+    }
+  };
+
+  // Load modules assigned to selected intake using intakeModuleService
+  const loadModulesForIntake = async (intakeId: number | '') => {
+    if (!intakeId) return;
+    try {
+      console.log('Loading modules for intake ID:', intakeId);
+      const response = await intakeModuleService.getModulesByIntake(Number(intakeId));
+      console.log('Modules response from intakeModuleService:', response);
+      if (response && response.success && response.data) {
+        // Map IntakeModuleDTO to Module interface
+        const mappedModules = response.data.map((im: any) => ({
+          id: im.moduleId,
+          moduleCode: im.moduleCode,
+          moduleName: im.moduleName
+        }));
+        console.log('Mapped modules for exam creation:', mappedModules);
+        setModules(mappedModules);
+      } else {
+        console.warn('No modules found for intake:', intakeId);
+        setModules([]);
+      }
+    } catch (error) {
+      console.error('Error loading modules for intake:', error);
+      setModules([]);
+    }
+  };
+
+  const loadDepartments = async (facultyId: number | '') => {
+    if (!facultyId) return;
+    try {
+      const response = await departmentService.getByFaculty(Number(facultyId));
+      if (response && response.success && response.data) {
+        setDepartments(response.data);
+      } else {
+        setDepartments([]);
+      }
     } catch (error) {
       console.error('Error loading departments:', error);
+      setDepartments([]);
     }
   };
 
-  const loadPrograms = async (departmentId: string) => {
+  const loadPrograms = async (departmentId: number | '') => {
+    if (!departmentId) return;
     try {
-      const { data, error } = await supabase
-        .from('programs')
-        .select('id, name, department_id')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setPrograms(data || []);
+      const response = await programService.getAll();
+      if (response && response.success && response.data) {
+        const filteredPrograms = response.data.filter((p: any) => p.departmentId === Number(departmentId) || p.department_id === Number(departmentId));
+        setPrograms(filteredPrograms as any[]);
+      } else {
+        setPrograms([]);
+      }
     } catch (error) {
       console.error('Error loading programs:', error);
-    }
-  };
-
-  const loadIntakes = async (programId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('intakes')
-        .select('id, intake_name, program_id')
-        .eq('program_id', programId)
-        .eq('is_active', true)
-        .order('intake_year', { ascending: false });
-
-      if (error) throw error;
-      setIntakes(data || []);
-    } catch (error) {
-      console.error('Error loading intakes:', error);
-    }
-  };
-
-  const loadModules = async (programId: string, intakeId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('modules')
-        .select('id, module_code, module_name, program_id, intake_id')
-        .eq('program_id', programId)
-        .eq('intake_id', intakeId)
-        .eq('is_active', true)
-        .order('module_code');
-
-      if (error) throw error;
-      setModules(data || []);
-    } catch (error) {
-      console.error('Error loading modules:', error);
+      setPrograms([]);
     }
   };
 
   // Filter load functions
   const loadFilterFaculties = async () => {
     try {
-      const { data, error } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFilterFaculties(data || []);
+      const response = await facultyService.getAll();
+      if (response && response.success && response.data) {
+        setFilterFaculties(response.data);
+      } else {
+        setFilterFaculties([]);
+      }
     } catch (error) {
       console.error('Error loading filter faculties:', error);
+      setFilterFaculties([]);
     }
   };
 
   const loadFilterDepartments = async (facultyId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('departments')
-        .select('id, name, faculty_id')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFilterDepartments(data || []);
+      const response = await departmentService.getByFaculty(Number(facultyId));
+      if (response && response.success && response.data) {
+        setFilterDepartments(response.data);
+      } else {
+        setFilterDepartments([]);
+      }
     } catch (error) {
       console.error('Error loading filter departments:', error);
+      setFilterDepartments([]);
     }
   };
 
   const loadFilterPrograms = async (departmentId: string) => {
     try {
-      const { data, error} = await supabase
-        .from('programs')
-        .select('id, name, department_id')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFilterPrograms(data || []);
+      const response = await programService.getAll();
+      if (response && response.success && response.data) {
+        const filtered = response.data.filter((p: any) => p.departmentId === Number(departmentId) || p.department_id === Number(departmentId));
+        setFilterPrograms(filtered as any[]);
+      } else {
+        setFilterPrograms([]);
+      }
     } catch (error) {
       console.error('Error loading filter programs:', error);
+      setFilterPrograms([]);
     }
   };
 
   const loadFilterModules = async (programId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('modules')
-        .select('id, module_code, module_name, program_id')
-        .eq('program_id', programId)
-        .eq('is_active', true)
-        .order('module_code');
-
-      if (error) throw error;
-      setFilterModules(data || []);
+      // moduleService exposes a paged getModules; get many and filter by program client-side
+      const response = await moduleService.getModules(0, 10000);
+      if (response && response.success && response.data && response.data.content) {
+        const filtered = response.data.content.filter((m: any) => (m.programId === Number(programId) || m.program_id === Number(programId)));
+        setFilterModules(filtered as unknown as Module[]);
+      } else if (response && response.success && Array.isArray(response.data)) {
+        // fallback if service returns an array directly
+        const filtered = (response.data as any[]).filter((m: any) => (m.programId === Number(programId) || m.program_id === Number(programId)));
+        setFilterModules(filtered as unknown as Module[]);
+      } else {
+        setFilterModules([]);
+      }
     } catch (error) {
       console.error('Error loading filter modules:', error);
+      setFilterModules([]);
     }
   };
 
@@ -324,70 +407,153 @@ export function ExamManagement() {
     }
 
     try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny.from('exams').insert({
-        module_id: selectedModule,
-        intake_id: selectedIntake,
-        exam_name: examName,
+      const examData = {
+        examName,
         description: examDescription,
-        exam_date: examDate,
-        exam_time: examTime,
-        duration_minutes: durationMinutes,
-        max_marks: maxMarks,
-        is_published: false
-      });
+        moduleId: Number(selectedModule),
+        intakeId: Number(selectedIntake),
+        examDate,
+        examTime,
+        durationMinutes,
+        maxMarks
+      };
 
-      if (error) throw error;
-
-      alert('Exam created successfully!');
-      resetForm();
-      loadExams();
+      const response = await examService.createExamAdmin(examData);
+      if (response && response.success) {
+        showSuccessNotification(
+          'Exam Created Successfully',
+          `"${examName}" has been created and added to the system.`
+        );
+        resetForm();
+        loadExams();
+      } else {
+        console.error('Create exam failed:', response);
+        showErrorNotification('Failed to Create Exam', response?.message || 'An error occurred while creating the exam');
+      }
     } catch (error: any) {
       console.error('Error creating exam:', error);
-      alert('Failed to create exam: ' + error.message);
+      const errorMessage = error?.message || 'An unexpected error occurred';
+      
+      // Check if it's a duplicate exam error
+      if (errorMessage.includes('exam already exists') || errorMessage.includes('Only one exam per module')) {
+        showErrorNotification(
+          'Module Limit Reached',
+          'This module already has an exam. Only one exam per module is allowed. Please edit the existing exam or delete it before creating a new one.'
+        );
+      } else {
+        showErrorNotification('Failed to Create Exam', errorMessage);
+      }
     }
   };
 
-  const handleTogglePublish = async (examId: string, currentStatus: boolean) => {
+  const handleTogglePublish = async (examId: number, currentStatus: boolean) => {
     try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny
-        .from('exams')
-        .update({ is_published: !currentStatus })
-        .eq('id', examId);
-
-      if (error) throw error;
-      loadExams();
-    } catch (error) {
+      const response = await examService.togglePublishAdmin(examId);
+      if (response && response.success) {
+        showSuccessNotification(
+          'Status Updated',
+          `Exam has been ${currentStatus ? 'unpublished' : 'published'} successfully.`
+        );
+        loadExams();
+      } else {
+        console.error('Toggle publish failed:', response);
+        showErrorNotification('Failed to Update Status', response?.message || 'An error occurred');
+      }
+    } catch (error: any) {
       console.error('Error toggling publish status:', error);
+      showErrorNotification('Failed to Update Status', error?.message || 'An unexpected error occurred');
     }
   };
 
-  const handleDeleteExam = async (examId: string) => {
-    if (!confirm('Are you sure you want to delete this exam?')) return;
+  const handleDeleteExam = async (examId: number) => {
+    const exam = exams.find(e => e.id === examId);
+    const examName = exam?.examName || 'this exam';
+    
+    showConfirmDialog(
+      'Delete Exam',
+      `Are you sure you want to delete "${examName}"?\n\nThis action cannot be undone and will permanently remove the exam from the system.`,
+      async () => {
+        try {
+          const response = await examService.deleteExamAdmin(examId);
+          if (response && response.success) {
+            showSuccessNotification(
+              'Exam Deleted Successfully',
+              `"${examName}" has been permanently removed from the system.`
+            );
+            loadExams();
+          } else {
+            console.error('Delete exam failed:', response);
+            showErrorNotification('Failed to Delete Exam', response?.message || 'An error occurred while deleting the exam');
+          }
+        } catch (error: any) {
+          console.error('Error deleting exam:', error);
+          showErrorNotification('Failed to Delete Exam', error?.message || 'An unexpected error occurred');
+        }
+      },
+      'danger'
+    );
+  };
+
+  const handleEditExam = (exam: Exam) => {
+    // Load the exam data into the form
+    setIsEditMode(true);
+    setEditingExamId(exam.id);
+    setExamName(exam.examName);
+    setExamDescription(exam.description || '');
+    setExamDate(exam.examDate);
+    setExamTime(exam.examTime);
+    setDurationMinutes(exam.durationMinutes);
+    setMaxMarks(exam.maxMarks);
+    setSelectedModule(exam.moduleId);
+    setSelectedIntake(exam.intakeId);
+    
+    // For edit mode, skip the selection steps and go directly to exam details
+    // The module and intake are already selected, user can't change them in edit mode
+    setStep(6); // Go directly to exam details step
+    setShowModal(true);
+  };
+
+  const handleUpdateExam = async () => {
+    if (!editingExamId) return;
+    
+    const examData = {
+      examName,
+      description: examDescription,
+      examDate,
+      examTime,
+      durationMinutes,
+      maxMarks,
+      moduleId: selectedModule as number,
+      intakeId: selectedIntake as number
+    };
 
     try {
-      const { error } = await supabase
-        .from('exams')
-        .delete()
-        .eq('id', examId);
-
-      if (error) throw error;
-      loadExams();
-    } catch (error) {
-      console.error('Error deleting exam:', error);
-      alert('Failed to delete exam');
+      const response = await examService.updateExamAdmin(editingExamId, examData);
+      if (response && response.success) {
+        showSuccessNotification(
+          'Exam Updated Successfully',
+          `"${examName}" has been updated.`
+        );
+        resetForm();
+        loadExams();
+      } else {
+        console.error('Update exam failed:', response);
+        showErrorNotification('Failed to Update Exam', response?.message || 'An error occurred while updating the exam');
+      }
+    } catch (error: any) {
+      console.error('Error updating exam:', error);
+      showErrorNotification('Failed to Update Exam', error?.message || 'An unexpected error occurred');
     }
   };
 
   const resetForm = () => {
     setShowModal(false);
+    setIsEditMode(false);
+    setEditingExamId(null);
     setStep(1);
-    setSelectedFaculty('');
-    setSelectedDepartment('');
-    setSelectedProgram('');
     setSelectedIntake('');
     setSelectedModule('');
+    setModules([]); // Clear modules when resetting
     setExamName('');
     setExamDescription('');
     setExamDate('');
@@ -403,31 +569,10 @@ export function ExamManagement() {
     setFilterProgram('all');
     setFilterModule('all');
     setFilterStatus('all');
+    setCurrentPage(0);
   };
 
-  const filteredExams = exams.filter(exam => {
-    const matchesSearch = 
-      exam.exam_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exam.modules?.module_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exam.modules?.module_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesModule = filterModule === 'all' || exam.module_id === filterModule;
-    
-    const matchesProgram = filterProgram === 'all' || 
-      filterModules.find(m => m.id === exam.module_id)?.program_id === filterProgram;
-    
-    const matchesDepartment = filterDepartment === 'all' || 
-      filterPrograms.find(p => p.id === filterModules.find(m => m.id === exam.module_id)?.program_id)?.department_id === filterDepartment;
-    
-    const matchesFaculty = filterFaculty === 'all' || 
-      filterDepartments.find(d => d.id === filterPrograms.find(p => p.id === filterModules.find(m => m.id === exam.module_id)?.program_id)?.department_id)?.faculty_id === filterFaculty;
-    
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'published' && exam.is_published) ||
-      (filterStatus === 'draft' && !exam.is_published);
-    
-    return matchesSearch && matchesModule && matchesProgram && matchesDepartment && matchesFaculty && matchesStatus;
-  });
+  // displayedExams is just exams since filtering is server-side now
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -498,7 +643,7 @@ export function ExamManagement() {
               >
                 <option value="all">All Departments</option>
                 {filterDepartments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                  <option key={d.id} value={d.id}>{d.departmentName}</option>
                 ))}
               </select>
             </div>
@@ -525,7 +670,7 @@ export function ExamManagement() {
               >
                 <option value="all">All Modules</option>
                 {filterModules.map(m => (
-                  <option key={m.id} value={m.id}>{m.module_code} - {m.module_name}</option>
+                  <option key={m.id} value={m.id}>{m.moduleCode} - {m.moduleName}</option>
                 ))}
               </select>
               <select
@@ -556,205 +701,253 @@ export function ExamManagement() {
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-700"></div>
               <p className="mt-4 text-gray-600">Loading exams...</p>
             </div>
-          ) : filteredExams.length === 0 ? (
+          ) : exams.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow">
               <FileText className="mx-auto text-gray-400" size={48} />
-              <p className="mt-4 text-gray-600">No exams found. {exams.length > 0 ? 'Try adjusting your filters.' : 'Create your first exam!'}</p>
+              <p className="mt-4 text-gray-600">No exams found. {totalElements > 0 ? 'Try adjusting your filters.' : 'Create your first exam!'}</p>
             </div>
           ) : (
-            filteredExams.map((exam) => (
-              <div
-                key={exam.id}
-                className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold text-gray-900">{exam.exam_name}</h3>
-                      <span
-                        className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                          exam.is_published
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
+            <>
+              {exams.map((exam) => (
+                <div
+                  key={exam.id}
+                  className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-xl font-bold text-gray-900">{exam.examName}</h3>
+                        <span
+                          className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                            exam.published
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {exam.published ? 'Published' : 'Draft'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">{exam.description}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm text-gray-500">
+                        <div>
+                          <span className="font-medium text-gray-700">Module:</span>
+                          <div className="text-xs">{exam.moduleCode} - {exam.moduleName}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-700">Intake:</span>
+                          <div className="text-xs">{exam.intakeName}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-700">Date:</span>
+                          <div className="text-xs">{new Date(exam.examDate).toLocaleDateString()}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-700">Time:</span>
+                          <div className="text-xs">{exam.examTime} ({exam.durationMinutes} min)</div>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-700">Max Marks:</span>
+                          <div className="text-xs">{exam.maxMarks}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <button 
+                        onClick={() => handleEditExam(exam)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors"
+                        title="Edit exam"
                       >
-                        {exam.is_published ? 'Published' : 'Draft'}
-                      </span>
+                        <Edit size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleTogglePublish(exam.id, exam.published)}
+                        className={`${
+                          exam.published
+                            ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                            : 'bg-green-100 text-green-600 hover:bg-green-200'
+                        } p-2 rounded-lg transition-colors`}
+                        title={exam.published ? 'Unpublish' : 'Publish'}
+                      >
+                        {exam.published ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteExam(exam.id)}
+                        className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
+                        title="Delete exam"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
-                    <p className="text-sm text-gray-600 mb-3">{exam.description}</p>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm text-gray-500">
-                      <div>
-                        <span className="font-medium text-gray-700">Module:</span>
-                        <div className="text-xs">{exam.modules?.module_code} - {exam.modules?.module_name}</div>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-700">Intake:</span>
-                        <div className="text-xs">{exam.intakes?.intake_name}</div>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-700">Date:</span>
-                        <div className="text-xs">{new Date(exam.exam_date).toLocaleDateString()}</div>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-700">Time:</span>
-                        <div className="text-xs">{exam.exam_time} ({exam.duration_minutes} min)</div>
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-700">Max Marks:</span>
-                        <div className="text-xs">{exam.max_marks}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors">
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleTogglePublish(exam.id, exam.is_published)}
-                      className={`${
-                        exam.is_published
-                          ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
-                          : 'bg-green-100 text-green-600 hover:bg-green-200'
-                      } p-2 rounded-lg transition-colors`}
-                      title={exam.is_published ? 'Unpublish' : 'Publish'}
-                    >
-                      {exam.is_published ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteExam(exam.id)}
-                      className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-8 flex justify-center items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                    disabled={currentPage === 0}
+                    className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i;
+                      } else if (currentPage < 3) {
+                        pageNum = i;
+                      } else if (currentPage > totalPages - 3) {
+                        pageNum = totalPages - 5 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-4 py-2 rounded-lg transition-colors ${
+                            currentPage === pageNum
+                              ? 'bg-cyan-600 text-white'
+                              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
+                    disabled={currentPage === totalPages - 1}
+                    className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+
+              {/* Results info */}
+              {totalElements > 0 && (
+                <div className="text-center text-sm text-gray-600 mt-4">
+                  Showing {currentPage * pageSize + 1} to {Math.min((currentPage + 1) * pageSize, totalElements)} of {totalElements} exams
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* Create Exam Modal */}
+        {/* Create/Edit Exam Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Exam</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                  {isEditMode ? 'Edit Exam' : 'Create New Exam'}
+                </h2>
 
                 {/* Step Indicator */}
                 <div className="flex items-center justify-between mb-8">
-                  {[1, 2, 3, 4, 5, 6].map((s) => (
-                    <div key={s} className="flex items-center">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                          step >= s ? 'bg-cyan-600 text-white' : 'bg-gray-200 text-gray-600'
-                        }`}
-                      >
-                        {s}
+                  {[1, 2, 3].map((s) => (
+                    <div key={s} className="flex items-center flex-1">
+                      <div className="flex items-center flex-1">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+                            step >= s ? 'bg-cyan-600 text-white' : 'bg-gray-200 text-gray-600'
+                          }`}
+                        >
+                          {s}
+                        </div>
+                        <div className="ml-2 text-sm font-medium text-gray-700">
+                          {s === 1 && 'Intake'}
+                          {s === 2 && 'Module'}
+                          {s === 3 && 'Details'}
+                        </div>
                       </div>
-                      {s < 6 && <div className={`w-8 h-1 ${step > s ? 'bg-cyan-600' : 'bg-gray-200'}`}></div>}
+                      {s < 3 && (
+                        <div className={`flex-1 h-1 mx-4 ${step > s ? 'bg-cyan-600' : 'bg-gray-200'}`}></div>
+                      )}
                     </div>
                   ))}
                 </div>
 
-                {/* Step 1: Faculty */}
+                {/* Step 1: Intake Selection */}
                 {step === 1 && (
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 1: Select Faculty</h3>
-                    <select
-                      value={selectedFaculty}
-                      onChange={(e) => setSelectedFaculty(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">-- Select Faculty --</option>
-                      {faculties.map((faculty) => (
-                        <option key={faculty.id} value={faculty.id}>
-                          {faculty.name}
-                        </option>
-                      ))}
-                    </select>
+                    <h3 className="text-lg font-semibold">Step 1: Select Intake</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Choose the intake for this exam. Program and faculty information will be shown.
+                    </p>
+                    {intakes.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>Loading intakes...</p>
+                        <p className="text-sm mt-2">If no intakes appear, please create intakes in Intake Management first.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <select
+                          value={selectedIntake}
+                          onChange={(e) => setSelectedIntake(e.target.value ? Number(e.target.value) : '')}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        >
+                          <option value="">-- Select Intake --</option>
+                          {intakes.map((intake) => (
+                            <option key={intake.id} value={intake.id}>
+                              {intake.intakeName} - {intake.programName} ({intake.facultyName})
+                            </option>
+                          ))}
+                        </select>
+                        {selectedIntake && (
+                          <div className="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
+                            {intakes.find(i => i.id === selectedIntake) && (
+                              <>
+                                <p><strong>Program:</strong> {intakes.find(i => i.id === selectedIntake)?.programName}</p>
+                                <p><strong>Department:</strong> {intakes.find(i => i.id === selectedIntake)?.departmentName}</p>
+                                <p><strong>Faculty:</strong> {intakes.find(i => i.id === selectedIntake)?.facultyName}</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 
-                {/* Step 2: Department */}
+                {/* Step 2: Module Selection */}
                 {step === 2 && (
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 2: Select Department</h3>
-                    <select
-                      value={selectedDepartment}
-                      onChange={(e) => setSelectedDepartment(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">-- Select Department --</option>
-                      {departments.map((dept) => (
-                        <option key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </option>
-                      ))}
-                    </select>
+                    <h3 className="text-lg font-semibold">Step 2: Select Module</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Select the module for which you want to create this exam.
+                    </p>
+                    {modules.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No modules assigned to this intake yet.</p>
+                        <p className="text-sm mt-2">Please assign modules to the intake first in Intake Management.</p>
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedModule}
+                        onChange={(e) => setSelectedModule(e.target.value ? Number(e.target.value) : '')}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      >
+                        <option value="">-- Select Module --</option>
+                        {modules.map((module) => (
+                          <option key={module.id} value={module.id}>
+                            {module.moduleCode} - {module.moduleName}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 )}
 
-                {/* Step 3: Program */}
+                {/* Step 3: Exam Details */}
                 {step === 3 && (
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 3: Select Program</h3>
-                    <select
-                      value={selectedProgram}
-                      onChange={(e) => setSelectedProgram(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">-- Select Program --</option>
-                      {programs.map((program) => (
-                        <option key={program.id} value={program.id}>
-                          {program.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Step 4: Intake */}
-                {step === 4 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 4: Select Intake</h3>
-                    <select
-                      value={selectedIntake}
-                      onChange={(e) => setSelectedIntake(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">-- Select Intake --</option>
-                      {intakes.map((intake) => (
-                        <option key={intake.id} value={intake.id}>
-                          {intake.intake_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Step 5: Module */}
-                {step === 5 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 5: Select Module</h3>
-                    <select
-                      value={selectedModule}
-                      onChange={(e) => setSelectedModule(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="">-- Select Module --</option>
-                      {modules.map((module) => (
-                        <option key={module.id} value={module.id}>
-                          {module.module_code} - {module.module_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Step 6: Exam Details */}
-                {step === 6 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 6: Exam Details</h3>
+                    <h3 className="text-lg font-semibold">Step 3: Exam Details</h3>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Exam Name <span className="text-red-500">*</span>
@@ -843,15 +1036,12 @@ export function ExamManagement() {
                   >
                     Cancel
                   </button>
-                  {step < 6 ? (
+                  {step < 3 ? (
                     <button
                       onClick={() => setStep(step + 1)}
                       disabled={
-                        (step === 1 && !selectedFaculty) ||
-                        (step === 2 && !selectedDepartment) ||
-                        (step === 3 && !selectedProgram) ||
-                        (step === 4 && !selectedIntake) ||
-                        (step === 5 && !selectedModule)
+                        (step === 1 && !selectedIntake) ||
+                        (step === 2 && !selectedModule)
                       }
                       className="flex-1 px-6 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
@@ -859,12 +1049,112 @@ export function ExamManagement() {
                     </button>
                   ) : (
                     <button
-                      onClick={handleCreateExam}
+                      onClick={isEditMode ? handleUpdateExam : handleCreateExam}
                       className="flex-1 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     >
-                      Create Exam
+                      {isEditMode ? 'Update Exam' : 'Create Exam'}
                     </button>
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Notification Modal */}
+        {showNotification && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[80]">
+            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full animate-scale-in">
+              <div className={`p-6 rounded-t-lg ${
+                notificationConfig.type === 'success' ? 'bg-gradient-to-r from-green-500 to-emerald-600' :
+                notificationConfig.type === 'error' ? 'bg-gradient-to-r from-red-500 to-red-600' :
+                notificationConfig.type === 'warning' ? 'bg-gradient-to-r from-amber-500 to-orange-600' :
+                'bg-gradient-to-r from-blue-500 to-blue-600'
+              } text-white`}>
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl">
+                    {notificationConfig.type === 'success' ? '✅' :
+                     notificationConfig.type === 'error' ? '❌' :
+                     notificationConfig.type === 'warning' ? '⚠️' : 'ℹ️'}
+                  </div>
+                  <h3 className="text-xl font-bold">{notificationConfig.title}</h3>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <p className="text-gray-700 text-base mb-4">{notificationConfig.message}</p>
+                
+                {notificationConfig.details.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                    <ul className="space-y-2">
+                      {notificationConfig.details.map((detail, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                          <span className={
+                            notificationConfig.type === 'error' ? 'text-red-500' :
+                            notificationConfig.type === 'warning' ? 'text-amber-500' :
+                            'text-green-500'
+                          }>•</span>
+                          {detail}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setShowNotification(false)}
+                  className={`w-full px-6 py-3 rounded-lg font-semibold text-white transition-all ${
+                    notificationConfig.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
+                    notificationConfig.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
+                    notificationConfig.type === 'warning' ? 'bg-amber-600 hover:bg-amber-700' :
+                    'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Confirmation Modal */}
+        {showConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[80]">
+            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full animate-scale-in">
+              <div className={`p-6 rounded-t-lg text-white ${
+                confirmationConfig.type === 'danger' 
+                  ? 'bg-gradient-to-r from-red-500 to-red-600' 
+                  : 'bg-gradient-to-r from-amber-500 to-orange-600'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl">{confirmationConfig.type === 'danger' ? '🗑️' : '⚠️'}</div>
+                  <h3 className="text-xl font-bold">{confirmationConfig.title}</h3>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <p className="text-gray-700 text-base mb-6 whitespace-pre-line">{confirmationConfig.message}</p>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setShowConfirmation(false)}
+                    className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-semibold text-gray-700 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowConfirmation(false);
+                      confirmationConfig.onConfirm();
+                    }}
+                    className={`flex-1 px-6 py-3 rounded-lg font-semibold text-white transition-all ${
+                      confirmationConfig.type === 'danger'
+                        ? 'bg-red-600 hover:bg-red-700'
+                        : 'bg-amber-600 hover:bg-amber-700'
+                    }`}
+                  >
+                    {confirmationConfig.confirmText}
+                  </button>
                 </div>
               </div>
             </div>

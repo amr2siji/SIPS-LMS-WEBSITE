@@ -2,16 +2,17 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   BookOpen, FileText, Upload, DollarSign,
-  Calendar, CheckCircle, Clock, LogOut, Bell, User, ChevronDown
+  Calendar, CheckCircle, Clock, LogOut, Bell, User, ChevronDown, ChevronUp, Layers, FileCheck, ClipboardList, ExternalLink, Download
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { studentProgramService, StudentProgram, StudentDashboardStats, StudentModule, StudentLectureMaterial, StudentAssignment, StudentExam } from '../../services/studentProgramService';
 
 interface StudentDashboardData {
   studentInfo: {
     nic: string;
     fullName: string;
     email: string;
-    enrolledPrograms: string[];
+    enrolledPrograms: StudentProgram[];
   };
   stats: {
     totalModules: number;
@@ -21,12 +22,34 @@ interface StudentDashboardData {
   };
 }
 
+interface ProgramModules {
+  [programId: number]: {
+    modules: StudentModule[];
+    loading: boolean;
+  };
+}
+
+interface ModuleContent {
+  materials?: StudentLectureMaterial[];
+  assignments?: StudentAssignment[];
+  exams?: StudentExam[];
+  loading?: boolean;
+}
+
+interface ModuleContents {
+  [moduleId: number]: ModuleContent;
+}
+
 export function StudentDashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<StudentDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [expandedPrograms, setExpandedPrograms] = useState<Set<number>>(new Set());
+  const [programModules, setProgramModules] = useState<ProgramModules>({});
+  const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
+  const [moduleContents, setModuleContents] = useState<ModuleContents>({});
 
   useEffect(() => {
     if (user) {
@@ -42,28 +65,64 @@ export function StudentDashboard() {
         return;
       }
 
-      // TODO: Replace with real API call when backend is ready
-      // For now, use mock data to display dashboard
-      console.log('Using mock data for student dashboard - API not implemented yet');
-      
-      setDashboardData({
-        studentInfo: {
-          nic: user.nic,
-          fullName: user.fullName || 'Student',
-          email: '',
-          enrolledPrograms: ['Information Technology', 'Business Management']
-        },
-        stats: {
-          totalModules: 8,
-          pendingAssignments: 3,
-          completedAssignments: 12,
-          totalMaterials: 45
-        }
-      });
+      // Load programs and stats from API
+      const [programsResult, statsResult] = await Promise.all([
+        studentProgramService.getMyPrograms(),
+        studentProgramService.getDashboardStats()
+      ]);
+
+      if (programsResult.success && statsResult.success) {
+        setDashboardData({
+          studentInfo: {
+            nic: user.nic,
+            fullName: user.fullName || 'Student',
+            email: '',
+            enrolledPrograms: programsResult.data || []
+          },
+          stats: {
+            totalModules: statsResult.data?.totalModules || 0,
+            pendingAssignments: statsResult.data?.pendingAssignments || 0,
+            completedAssignments: statsResult.data?.completedAssignments || 0,
+            totalMaterials: statsResult.data?.totalMaterials || 0
+          }
+        });
+      } else {
+        console.error('Error loading dashboard data:', programsResult.message, statsResult.message);
+        // Set empty data on error
+        setDashboardData({
+          studentInfo: {
+            nic: user.nic,
+            fullName: user.fullName || 'Student',
+            email: '',
+            enrolledPrograms: []
+          },
+          stats: {
+            totalModules: 0,
+            pendingAssignments: 0,
+            completedAssignments: 0,
+            totalMaterials: 0
+          }
+        });
+      }
       
       setLoading(false);
     } catch (error: any) {
       console.error('Error loading dashboard:', error);
+      // Set empty data on error
+      setDashboardData({
+        studentInfo: {
+          nic: user?.nic || '',
+          fullName: user?.fullName || 'Student',
+          email: '',
+          enrolledPrograms: []
+        },
+        stats: {
+          totalModules: 0,
+          pendingAssignments: 0,
+          completedAssignments: 0,
+          totalMaterials: 0
+        }
+      });
       setLoading(false);
     }
   };
@@ -71,6 +130,96 @@ export function StudentDashboard() {
   const handleLogout = async () => {
     await signOut();
     navigate('/login');
+  };
+
+  const toggleProgramExpansion = async (programId: number) => {
+    const newExpanded = new Set(expandedPrograms);
+    
+    if (newExpanded.has(programId)) {
+      // Collapse
+      newExpanded.delete(programId);
+    } else {
+      // Expand and load modules if not already loaded
+      newExpanded.add(programId);
+      
+      if (!programModules[programId]) {
+        setProgramModules(prev => ({
+          ...prev,
+          [programId]: { modules: [], loading: true }
+        }));
+        
+        try {
+          const result = await studentProgramService.getProgramModules(programId);
+          if (result.success) {
+            setProgramModules(prev => ({
+              ...prev,
+              [programId]: { modules: result.data || [], loading: false }
+            }));
+          } else {
+            setProgramModules(prev => ({
+              ...prev,
+              [programId]: { modules: [], loading: false }
+            }));
+          }
+        } catch (error) {
+          console.error('Error loading modules:', error);
+          setProgramModules(prev => ({
+            ...prev,
+            [programId]: { modules: [], loading: false }
+          }));
+        }
+      }
+    }
+    
+    setExpandedPrograms(newExpanded);
+  };
+
+  const toggleModuleExpansion = async (moduleId: number) => {
+    const newExpanded = new Set(expandedModules);
+    
+    if (newExpanded.has(moduleId)) {
+      newExpanded.delete(moduleId);
+    } else {
+      newExpanded.add(moduleId);
+      
+      if (!moduleContents[moduleId]) {
+        setModuleContents(prev => ({
+          ...prev,
+          [moduleId]: { loading: true }
+        }));
+        
+        try {
+          const [materialsResult, assignmentsResult, examsResult] = await Promise.all([
+            studentProgramService.getModuleMaterials(moduleId),
+            studentProgramService.getModuleAssignments(moduleId),
+            studentProgramService.getModuleExams(moduleId)
+          ]);
+          
+          setModuleContents(prev => ({
+            ...prev,
+            [moduleId]: {
+              materials: materialsResult.success ? materialsResult.data : [],
+              assignments: assignmentsResult.success ? assignmentsResult.data : [],
+              exams: examsResult.success ? examsResult.data : [],
+              loading: false
+            }
+          }));
+        } catch (error) {
+          console.error('Error loading module content:', error);
+          setModuleContents(prev => ({
+            ...prev,
+            [moduleId]: {
+              materials: [],
+              assignments: [],
+              exams: [],
+              loading: false
+            }
+          }));
+        }
+      }
+    }
+    
+    setExpandedModules(newExpanded);
   };
 
   if (loading) {
@@ -274,29 +423,232 @@ export function StudentDashboard() {
                 <p className="text-gray-500 text-center py-8">No programs enrolled yet.</p>
               ) : (
                 <div className="space-y-3">
-                  {dashboardData.studentInfo.enrolledPrograms.map((programName: string, index: number) => (
-                    <div
-                      key={index}
-                      className="w-full bg-white border border-gray-200 rounded-xl p-5 hover:border-emerald-300 hover:bg-emerald-50 transition-all hover:shadow-md group"
-                    >
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 rounded-lg group-hover:scale-110 transition-transform">
-                            <BookOpen className="text-white" size={24} />
-                          </div>
-                          <div className="text-left">
-                            <h4 className="font-bold text-gray-900 mb-1 group-hover:text-emerald-700 transition-colors">{programName}</h4>
-                            <p className="text-sm text-gray-600">Active Program</p>
+                  {dashboardData.studentInfo.enrolledPrograms.map((program: StudentProgram, index: number) => {
+                    const isExpanded = expandedPrograms.has(program.id);
+                    const moduleData = programModules[program.id];
+                    
+                    return (
+                      <div
+                        key={program.id || index}
+                        className="w-full bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-emerald-300 transition-all hover:shadow-md"
+                      >
+                        {/* Program Header - Clickable */}
+                        <div
+                          onClick={() => toggleProgramExpansion(program.id)}
+                          className="p-5 cursor-pointer hover:bg-emerald-50 transition-colors"
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-4 flex-1">
+                              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 rounded-lg">
+                                <BookOpen className="text-white" size={24} />
+                              </div>
+                              <div className="text-left flex-1">
+                                <h4 className="font-bold text-gray-900 mb-1">{program.programName}</h4>
+                                <div className="flex items-center gap-3 text-sm text-gray-600">
+                                  <span>{program.facultyName}</span>
+                                  {program.intakeName && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-emerald-600 font-medium">{program.intakeName}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                program.isActive 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {program.isActive ? 'Active' : 'Inactive'}
+                              </span>
+                              {isExpanded ? (
+                                <ChevronUp className="text-gray-400" size={20} />
+                              ) : (
+                                <ChevronDown className="text-gray-400" size={20} />
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                            Active
-                          </span>
-                        </div>
+
+                        {/* Expanded Content - Modules */}
+                        {isExpanded && (
+                          <div className="border-t border-gray-200 bg-gray-50 p-5">
+                            {/* Quick Navigation Banner */}
+                            <div className="mb-6 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl shadow-lg overflow-hidden">
+                              <div className="p-5 flex items-center justify-between">
+                                <div className="text-white">
+                                  <h5 className="font-bold text-lg mb-1 flex items-center gap-2">
+                                    <BookOpen size={22} />
+                                    Access Full Course Content
+                                  </h5>
+                                  <p className="text-emerald-50 text-sm">
+                                    View materials, submit assignments, and track your progress
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/student/modules?programId=${program.id}&programName=${encodeURIComponent(program.programName)}&intakeId=${program.intakeId || ''}`);
+                                  }}
+                                  className="px-6 py-3 bg-white hover:bg-emerald-50 text-emerald-700 rounded-lg font-bold transition-all shadow-md hover:shadow-xl flex items-center gap-2"
+                                >
+                                  <ExternalLink size={18} />
+                                  Open Modules
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {moduleData?.loading ? (
+                              <div className="text-center py-8">
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                                <p className="text-gray-600 mt-2">Loading modules...</p>
+                              </div>
+                            ) : moduleData?.modules && moduleData.modules.length > 0 ? (
+                              <div className="space-y-3">
+                                <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                  <Layers size={18} />
+                                  Modules ({moduleData.modules.length})
+                                </h5>
+                                <div className="grid gap-3">
+                                  {moduleData.modules.map((module: StudentModule) => {
+                                    const isModuleExpanded = expandedModules.has(module.id);
+                                    const contentData = moduleContents[module.id];
+                                    
+                                    return (
+                                    <div
+                                      key={module.id}
+                                      className="bg-white rounded-lg border border-gray-200 hover:border-emerald-300 transition-colors overflow-hidden"
+                                    >
+                                      {/* Module Header - Clickable */}
+                                      <div 
+                                        onClick={() => toggleModuleExpansion(module.id)}
+                                        className="p-4 cursor-pointer hover:bg-emerald-50 transition-colors"
+                                      >
+                                        <div className="flex justify-between items-start mb-2">
+                                          <div className="flex-1">
+                                            <h6 className="font-semibold text-gray-900">{module.moduleName}</h6>
+                                            {module.moduleCode && (
+                                              <p className="text-xs text-gray-500 mt-1">{module.moduleCode}</p>
+                                            )}
+                                            {module.description && (
+                                              <p className="text-sm text-gray-600 mt-2">{module.description}</p>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-2 ml-3">
+                                            {module.creditScore && (
+                                              <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                                                {module.creditScore} Credits
+                                              </span>
+                                            )}
+                                            {isModuleExpanded ? (
+                                              <ChevronUp className="text-gray-400" size={18} />
+                                            ) : (
+                                              <ChevronDown className="text-gray-400" size={18} />
+                                            )}
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Module Stats */}
+                                        <div className="flex gap-4 mt-3 pt-3 border-t border-gray-100">
+                                          <div className="flex items-center gap-1 text-sm text-gray-600">
+                                            <FileText size={16} className="text-blue-500" />
+                                            <span>{module.totalMaterials || 0} Materials</span>
+                                          </div>
+                                          <div className="flex items-center gap-1 text-sm text-gray-600">
+                                            <ClipboardList size={16} className="text-orange-500" />
+                                            <span>{module.totalAssignments || 0} Assignments</span>
+                                          </div>
+                                          <div className="flex items-center gap-1 text-sm text-gray-600">
+                                            <FileCheck size={16} className="text-green-500" />
+                                            <span>{module.totalExams || 0} Exams</span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Expanded Module Content */}
+                                      {isModuleExpanded && (
+                                        <div className="border-t border-gray-200 bg-gray-50 p-4">
+                                          {contentData?.loading ? (
+                                            <div className="text-center py-6">
+                                              <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
+                                              <p className="text-gray-600 text-sm mt-2">Loading content...</p>
+                                            </div>
+                                          ) : (
+                                            <div className="space-y-4">
+                                              {/* Summary Cards Only - Simple View */}
+                                              <div className="grid grid-cols-3 gap-3">
+                                                {/* Materials Summary */}
+                                                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 text-center">
+                                                  <FileText className="mx-auto text-blue-600 mb-2" size={32} />
+                                                  <p className="text-2xl font-bold text-gray-900">
+                                                    {contentData?.materials?.length || 0}
+                                                  </p>
+                                                  <p className="text-sm text-gray-600 font-medium">Materials</p>
+                                                </div>
+
+                                                {/* Assignments Summary */}
+                                                <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 text-center">
+                                                  <ClipboardList className="mx-auto text-amber-600 mb-2" size={32} />
+                                                  <p className="text-2xl font-bold text-gray-900">
+                                                    {contentData?.assignments?.length || 0}
+                                                  </p>
+                                                  <p className="text-sm text-gray-600 font-medium">Assignments</p>
+                                                </div>
+
+                                                {/* Exams Summary */}
+                                                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 text-center">
+                                                  <FileCheck className="mx-auto text-green-600 mb-2" size={32} />
+                                                  <p className="text-2xl font-bold text-gray-900">
+                                                    {contentData?.exams?.length || 0}
+                                                  </p>
+                                                  <p className="text-sm text-gray-600 font-medium">Exams</p>
+                                                </div>
+                                              </div>
+
+                                              {/* Pending Assignments Alert */}
+                                              {contentData?.assignments && contentData.assignments.filter(a => a.submissionStatus === 'PENDING').length > 0 && (
+                                                <div className="bg-amber-100 border-2 border-amber-300 rounded-lg p-4">
+                                                  <div className="flex items-center gap-3">
+                                                    <Clock className="text-amber-600" size={24} />
+                                                    <div className="flex-1">
+                                                      <p className="font-bold text-amber-900">
+                                                        {contentData.assignments.filter(a => a.submissionStatus === 'PENDING').length} Pending Assignment{contentData.assignments.filter(a => a.submissionStatus === 'PENDING').length !== 1 ? 's' : ''}
+                                                      </p>
+                                                      <p className="text-sm text-amber-700">
+                                                        Click "Open Modules" above to view details and submit your work
+                                                      </p>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              )}
+
+                                              {/* No Content Message */}
+                                              {(!contentData?.materials || contentData.materials.length === 0) &&
+                                               (!contentData?.assignments || contentData.assignments.length === 0) &&
+                                               (!contentData?.exams || contentData.exams.length === 0) && (
+                                                <p className="text-gray-500 text-center py-6 text-sm">
+                                                  No content available for this module yet.
+                                                </p>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-gray-500 text-center py-4">No modules available for this program.</p>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

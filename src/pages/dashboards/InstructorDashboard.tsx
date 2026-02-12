@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { BookOpen, FileText, Users, CheckCircle, LogOut, GraduationCap, ClipboardCheck, Bell, User, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export function InstructorDashboard() {
-  const { profile, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalModules: 0,
@@ -17,57 +16,21 @@ export function InstructorDashboard() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (profile) {
+    if (user) {
       loadInstructorData();
     }
-  }, [profile]);
+  }, [user]);
 
   const loadInstructorData = async () => {
     try {
-      if (!profile?.id) return;
-
-      // Get lecturer's assigned modules
-      const { data: lecturerAssignments } = await supabase
-        .from('lecturer_assignments')
-        .select('module_id, intake_id')
-        .eq('lecturer_id', profile.id);
-
-      const moduleIds = lecturerAssignments?.map((la: any) => la.module_id) || [];
-      const intakeIds = lecturerAssignments?.map((la: any) => la.intake_id) || [];
-
-      // Get total students enrolled in instructor's intakes
-      const { data: studentPrograms } = await supabase
-        .from('student_programs')
-        .select('student_id')
-        .in('intake_id', intakeIds);
-
-      // Get assignments for instructor's modules
-      const { data: assignments } = await supabase
-        .from('assignments')
-        .select('id')
-        .in('module_id', moduleIds);
-
-      // Get exams for instructor's modules
-      const { data: exams } = await supabase
-        .from('exams')
-        .select('id')
-        .in('module_id', moduleIds);
-
-      const assignmentIds = assignments?.map((a: any) => a.id) || [];
-
-      // Get pending assignment submissions
-      const { data: pendingAssignments } = await supabase
-        .from('assignment_submissions')
-        .select('id')
-        .in('assignment_id', assignmentIds)
-        .is('graded_at', null);
-
+      // TODO: Replace Supabase calls with backend API calls
+      // For now, just set default stats
       setStats({
-        totalModules: moduleIds.length || 0,
-        totalStudents: studentPrograms?.length || 0,
-        totalAssignments: assignments?.length || 0,
-        totalExams: exams?.length || 0,
-        pendingSubmissions: pendingAssignments?.length || 0,
+        totalModules: 0,
+        totalStudents: 0,
+        totalAssignments: 0,
+        totalExams: 0,
+        pendingSubmissions: 0,
       });
     } catch (error) {
       console.error('Error loading instructor data:', error);
@@ -81,11 +44,11 @@ export function InstructorDashboard() {
 
   const quickActions = [
     {
-      title: 'Assignment Management',
-      description: 'Create and track assignments',
+      title: 'My Assignments',
+      description: 'Manage assignments for your modules',
       icon: FileText,
       color: 'from-teal-500 to-teal-600',
-      path: '/admin/assignment-management',
+      path: '/lecturer/assignments',
       badge: null
     },
     {
@@ -93,7 +56,7 @@ export function InstructorDashboard() {
       description: 'Schedule and manage examinations',
       icon: BookOpen,
       color: 'from-cyan-500 to-cyan-600',
-      path: '/admin/exam-management',
+      path: '/lecturer/exams',
       badge: null
     },
     {
@@ -101,15 +64,15 @@ export function InstructorDashboard() {
       description: 'Grade assignments and exams',
       icon: ClipboardCheck,
       color: 'from-purple-500 to-purple-600',
-      path: '/admin/marks-management',
+      path: '/lecturer/marks-management',
       badge: stats.pendingSubmissions
     },
     {
-      title: 'Lecture Material Management',
+      title: 'My Materials',
       description: 'Upload and manage course materials',
       icon: GraduationCap,
-      color: 'from-indigo-500 to-indigo-600',
-      path: '/admin/lecture-material-management',
+      color: 'from-emerald-500 to-emerald-600',
+      path: '/lecturer/materials',
       badge: null
     },
   ];
@@ -126,7 +89,7 @@ export function InstructorDashboard() {
                 <h1 className="text-xl md:text-2xl font-bold text-white italic">
                   Instructor Portal
                 </h1>
-                <p className="text-sm md:text-base text-emerald-100">{profile?.full_name}</p>
+                <p className="text-sm md:text-base text-emerald-100">{user?.fullName || 'Instructor'}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -154,8 +117,8 @@ export function InstructorDashboard() {
                 {isProfileMenuOpen && (
                   <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <div className="px-4 py-3 border-b border-gray-200">
-                      <p className="text-sm font-semibold text-gray-900">{profile?.full_name}</p>
-                      <p className="text-xs text-gray-600">{profile?.email}</p>
+                      <p className="text-sm font-semibold text-gray-900">{user?.fullName || 'Instructor'}</p>
+                      <p className="text-xs text-gray-600">NIC: {user?.nic}</p>
                       <p className="text-xs text-emerald-600 font-medium mt-1">Instructor</p>
                     </div>
                     <button

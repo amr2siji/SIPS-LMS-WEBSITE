@@ -1,126 +1,77 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Clock, MapPin, BookOpen, AlertCircle } from 'lucide-react';
 
 interface ExamSchedule {
   id: string;
-  exam_date: string;
-  start_time: string;
-  end_time: string;
+  examDate: string;
+  startTime: string;
+  endTime: string;
   location: string;
-  exam_type: string;
+  examType: string;
   instructions: string;
-  module_id: string;
-  module_code: string;
-  module_name: string;
-  program_id: string;
-  program_name: string;
-  department_name: string;
-  credit_score: number;
+  moduleId: string;
+  moduleName: string;
+  examName: string;
+  description?: string;
+  duration?: number;
+  maxMarks?: number;
 }
 
 export function StudentExamSchedule() {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [examSchedules, setExamSchedules] = useState<ExamSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('upcoming');
 
   useEffect(() => {
-    if (profile) {
+    if (user) {
       loadExamSchedules();
     }
-  }, [profile]);
+  }, [user]);
 
   const loadExamSchedules = async () => {
     try {
       setLoading(true);
 
-      if (!profile?.id) {
-        setLoading(false);
-        return;
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/student/exams`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Get student's enrolled programs
-      const { data: studentPrograms, error: programsError } = await supabase
-        .from('student_programs')
-        .select('program_id, intake_id')
-        .eq('student_id', profile.id)
-        .eq('is_active', true);
+      const result = await response.json();
+      const examsData = result.data || [];
 
-      if (programsError) throw programsError;
-
-      if (!studentPrograms || studentPrograms.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      // Get all modules for enrolled programs
-      const programIds = studentPrograms.map((p: any) => p.program_id);
-      const intakeIds = studentPrograms.map((p: any) => p.intake_id);
-
-      const { data: modules, error: modulesError } = await supabase
-        .from('modules')
-        .select(`
-          id,
-          module_code,
-          module_name,
-          credit_score,
-          program_id,
-          intake_id,
-          programs:program_id (
-            id,
-            name,
-            departments:department_id (
-              name
-            )
-          )
-        `)
-        .in('program_id', programIds)
-        .in('intake_id', intakeIds)
-        .eq('is_active', true);
-
-      if (modulesError) throw modulesError;
-
-      if (!modules || modules.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      // Get all exam schedules for these modules
-      const moduleIds = modules.map((m: any) => m.id);
-      const { data: exams, error: examsError } = await supabase
-        .from('exams')
-        .select('*')
-        .in('module_id', moduleIds)
-        .eq('is_active', true)
-        .order('exam_date', { ascending: true })
-        .order('start_time', { ascending: true });
-
-      if (examsError) throw examsError;
-
-      // Combine exam data with module information
-      const formattedExams: ExamSchedule[] = (exams || []).map((exam: any) => {
-        const module = modules.find((m: any) => m.id === exam.module_id);
-        return {
-          id: exam.id,
-          exam_date: exam.exam_date,
-          start_time: exam.start_time,
-          end_time: exam.end_time,
-          location: exam.location || 'TBA',
-          exam_type: exam.exam_type || 'Written',
-          instructions: exam.instructions || '',
-          module_id: exam.module_id,
-          module_code: (module as any)?.module_code || '',
-          module_name: (module as any)?.module_name || 'Unknown Module',
-          program_id: (module as any)?.program_id || '',
-          program_name: (module as any)?.programs?.name || 'Unknown Program',
-          department_name: (module as any)?.programs?.departments?.name || 'Unknown Department',
-          credit_score: (module as any)?.credit_score || 0,
-        };
-      });
+      // Format the data to match our interface
+      const formattedExams: ExamSchedule[] = examsData.map((exam: any) => ({
+        id: exam.id,
+        examDate: exam.examDate,
+        startTime: exam.startTime,
+        endTime: exam.endTime,
+        location: exam.location || 'TBA',
+        examType: exam.examType || 'Written',
+        instructions: exam.instructions || '',
+        moduleId: exam.moduleId,
+        moduleName: exam.moduleName || 'Unknown Module',
+        examName: exam.examName || 'Exam',
+        description: exam.description,
+        duration: exam.duration,
+        maxMarks: exam.maxMarks
+      }));
 
       setExamSchedules(formattedExams);
     } catch (error) {
@@ -136,9 +87,9 @@ export function StudentExamSchedule() {
 
     switch (filter) {
       case 'upcoming':
-        return examSchedules.filter(exam => new Date(exam.exam_date) >= today);
+        return examSchedules.filter(exam => new Date(exam.examDate) >= today);
       case 'past':
-        return examSchedules.filter(exam => new Date(exam.exam_date) < today);
+        return examSchedules.filter(exam => new Date(exam.examDate) < today);
       default:
         return examSchedules;
     }
@@ -189,18 +140,18 @@ export function StudentExamSchedule() {
   const groupExamsByDate = (exams: ExamSchedule[]) => {
     const grouped: { [date: string]: ExamSchedule[] } = {};
     exams.forEach(exam => {
-      if (!grouped[exam.exam_date]) {
-        grouped[exam.exam_date] = [];
+      if (!grouped[exam.examDate]) {
+        grouped[exam.examDate] = [];
       }
-      grouped[exam.exam_date].push(exam);
+      grouped[exam.examDate].push(exam);
     });
     return grouped;
   };
 
   const filteredExams = getFilteredExams();
   const groupedExams = groupExamsByDate(filteredExams);
-  const upcomingCount = examSchedules.filter(exam => getDaysUntilExam(exam.exam_date) >= 0).length;
-  const pastCount = examSchedules.filter(exam => getDaysUntilExam(exam.exam_date) < 0).length;
+  const upcomingCount = examSchedules.filter(exam => getDaysUntilExam(exam.examDate) >= 0).length;
+  const pastCount = examSchedules.filter(exam => getDaysUntilExam(exam.examDate) < 0).length;
 
   if (loading) {
     return (
@@ -374,19 +325,21 @@ export function StudentExamSchedule() {
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
                                   <BookOpen className="text-indigo-600" size={20} />
-                                  <h4 className="text-lg font-bold text-gray-900">{exam.module_name}</h4>
-                                  <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${getExamTypeColor(exam.exam_type)}`}>
-                                    {exam.exam_type}
+                                  <h4 className="text-lg font-bold text-gray-900">{exam.moduleName}</h4>
+                                  <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${getExamTypeColor(exam.examType)}`}>
+                                    {exam.examType}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                                  <span className="font-semibold">{exam.module_code}</span>
-                                  <span>•</span>
-                                  <span>{exam.program_name}</span>
-                                  <span>•</span>
-                                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
-                                    {exam.credit_score} Credits
-                                  </span>
+                                  <span className="font-semibold">{exam.examName}</span>
+                                  {exam.maxMarks && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
+                                        {exam.maxMarks} Marks
+                                      </span>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -397,7 +350,7 @@ export function StudentExamSchedule() {
                                 <div>
                                   <div className="text-xs text-gray-600 font-medium">Time</div>
                                   <div className="text-sm font-bold text-gray-900">
-                                    {formatTime(exam.start_time)} - {formatTime(exam.end_time)}
+                                    {formatTime(exam.startTime)} - {formatTime(exam.endTime)}
                                   </div>
                                 </div>
                               </div>
@@ -410,13 +363,15 @@ export function StudentExamSchedule() {
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-gray-200">
-                                <Calendar className="text-green-600" size={20} />
-                                <div>
-                                  <div className="text-xs text-gray-600 font-medium">Department</div>
-                                  <div className="text-sm font-bold text-gray-900">{exam.department_name}</div>
+                              {exam.duration && (
+                                <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-gray-200">
+                                  <Calendar className="text-green-600" size={20} />
+                                  <div>
+                                    <div className="text-xs text-gray-600 font-medium">Duration</div>
+                                    <div className="text-sm font-bold text-gray-900">{exam.duration} minutes</div>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
 
                             {exam.instructions && (

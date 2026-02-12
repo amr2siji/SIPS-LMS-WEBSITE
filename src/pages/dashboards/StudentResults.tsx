@@ -1,28 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Award, BookOpen, Download } from 'lucide-react';
 
 interface ModuleResult {
-  module_id: string;
-  module_code: string;
-  module_name: string;
-  credit_score: number;
-  program_id: string;
-  program_name: string;
-  department_id: string;
-  department_name: string;
-  faculty_name: string;
-  total_marks: number;
-  obtained_marks: number;
+  moduleId: number;
+  moduleCode: string;
+  moduleName: string;
+  creditScore: number;
+  programId: number;
+  programName: string;
+  departmentName: string;
+  facultyName: string;
+  totalMarks: number;
+  obtainedMarks: number;
   percentage: number;
   grade: string;
   gpa: number;
 }
 
 export function StudentResults() {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [results, setResults] = useState<ModuleResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,145 +32,54 @@ export function StudentResults() {
   });
 
   useEffect(() => {
-    if (profile) {
+    if (user) {
       loadResults();
     }
-  }, [profile]);
+  }, [user]);
 
   const loadResults = async () => {
     try {
       setLoading(true);
 
-      if (!profile?.id) {
-        setLoading(false);
-        return;
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+
+      const response = await fetch(`${API_BASE_URL}/api/student/results`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load results');
       }
 
-      // Get student's enrolled programs
-      const { data: studentPrograms, error: programsError } = await supabase
-        .from('student_programs')
-        .select('program_id, intake_id')
-        .eq('student_id', profile.id)
-        .eq('is_active', true);
-
-      if (programsError) throw programsError;
-
-      if (!studentPrograms || studentPrograms.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      // Get all modules for enrolled programs
-      const programIds = studentPrograms.map((p: any) => p.program_id);
-      const { data: modules, error: modulesError } = await supabase
-        .from('modules')
-        .select(`
-          id,
-          module_code,
-          module_name,
-          credit_score,
-          program_id,
-          programs:program_id (
-            id,
-            name,
-            department_id,
-            departments:department_id (
-              id,
-              name,
-              faculty_id,
-              faculties:faculty_id (
-                name
-              )
-            )
-          )
-        `)
-        .in('program_id', programIds)
-        .eq('is_active', true);
-
-      if (modulesError) throw modulesError;
-
-      // Get all assignments and submissions for these modules
-      const moduleIds = (modules || []).map((m: any) => m.id);
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('assignments')
-        .select(`
-          id,
-          module_id,
-          max_marks,
-          assignment_submissions (
-            student_id,
-            marks_obtained
-          )
-        `)
-        .in('module_id', moduleIds)
-        .eq('is_published', true);
-
-      if (assignmentsError) throw assignmentsError;
-
-      // Calculate results for each module
-      const moduleResults: ModuleResult[] = [];
+      const result = await response.json();
+      console.log('API Response:', result);
+      console.log('Status Code:', result.statusCode, 'Type:', typeof result.statusCode);
       
-      for (const module of (modules || [])) {
-        const moduleAssignments = (assignments || []).filter((a: any) => a.module_id === (module as any).id);
-        const totalMarks = moduleAssignments.reduce((sum: number, a: any) => sum + (a.max_marks || 0), 0);
-        
-        let obtainedMarks = 0;
-        let completedAssignments = 0;
-
-        for (const assignment of moduleAssignments) {
-          const submission = (assignment as any).assignment_submissions?.find(
-            (s: any) => s.student_id === profile?.id
-          );
-          if (submission && submission.marks_obtained !== null) {
-            obtainedMarks += submission.marks_obtained;
-            completedAssignments++;
-          }
-        }
-
-        // Only include modules with at least one graded assignment
-        if (completedAssignments > 0 && totalMarks > 0) {
-          const percentage = (obtainedMarks / totalMarks) * 100;
-          const { grade, gpa } = calculateGrade(percentage);
-
-          moduleResults.push({
-            module_id: (module as any).id,
-            module_code: (module as any).module_code,
-            module_name: (module as any).module_name,
-            credit_score: (module as any).credit_score,
-            program_id: (module as any).programs?.id || '',
-            program_name: (module as any).programs?.name || 'Unknown Program',
-            department_id: (module as any).programs?.departments?.id || '',
-            department_name: (module as any).programs?.departments?.name || 'Unknown Department',
-            faculty_name: (module as any).programs?.departments?.faculties?.name || 'Unknown Faculty',
-            total_marks: totalMarks,
-            obtained_marks: obtainedMarks,
-            percentage: percentage,
-            grade: grade,
-            gpa: gpa,
-          });
-        }
-      }
-
-      // Calculate overall statistics
-      if (moduleResults.length > 0) {
-        const totalPercentage = moduleResults.reduce((sum, r) => sum + r.percentage, 0);
-        const averagePercentage = totalPercentage / moduleResults.length;
-        const { grade: overallGrade } = calculateGrade(averagePercentage);
-        
-        // Calculate CGPA (weighted by credit scores)
-        const totalCredits = moduleResults.reduce((sum, r) => sum + r.credit_score, 0);
-        const weightedGPA = moduleResults.reduce((sum, r) => sum + (r.gpa * r.credit_score), 0);
-        const cgpa = totalCredits > 0 ? weightedGPA / totalCredits : 0;
-
+      // Check for both "000" (success string) and 200 (number)
+      if ((result.statusCode === "000" || result.statusCode === 200) && result.data) {
+        const data = result.data;
+        console.log('Processing data:', data);
+        setResults(data.moduleResults || []);
         setOverallStats({
-          totalModules: moduleResults.length,
-          averagePercentage: averagePercentage,
-          overallGrade: overallGrade,
-          cgpa: cgpa,
+          totalModules: data.totalModules || 0,
+          averagePercentage: data.averagePercentage || 0,
+          overallGrade: data.overallGrade || 'N/A',
+          cgpa: data.cgpa || 0,
         });
+        console.log('Results set:', data.moduleResults);
+        console.log('Overall stats set:', {
+          totalModules: data.totalModules,
+          averagePercentage: data.averagePercentage,
+          overallGrade: data.overallGrade,
+          cgpa: data.cgpa
+        });
+      } else {
+        console.warn('Status code check failed or no data:', result.statusCode, result.data);
       }
-
-      setResults(moduleResults);
     } catch (error) {
       console.error('Error loading results:', error);
     } finally {
@@ -204,15 +111,15 @@ export function StudentResults() {
 
   // Group results by department and program
   const groupedResults = results.reduce((acc, result) => {
-    const deptKey = result.department_name;
+    const deptKey = result.departmentName;
     if (!acc[deptKey]) {
       acc[deptKey] = {
-        department_name: result.department_name,
-        faculty_name: result.faculty_name,
+        departmentName: result.departmentName,
+        facultyName: result.facultyName,
         programs: {}
       };
     }
-    const progKey = result.program_name;
+    const progKey = result.programName;
     if (!acc[deptKey].programs[progKey]) {
       acc[deptKey].programs[progKey] = [];
     }
@@ -310,8 +217,9 @@ export function StudentResults() {
         {results.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-sm p-12 text-center border border-gray-100">
             <Award className="mx-auto text-gray-400 mb-4" size={48} />
-            <h3 className="text-xl font-bold text-gray-900 mb-2">No Results Available</h3>
-            <p className="text-gray-600">You don't have any graded assignments yet. Results will appear here once your assignments are evaluated.</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">No Published Results Available</h3>
+            <p className="text-gray-600 mb-2">You don't have any published results yet.</p>
+            <p className="text-sm text-gray-500">Results will appear here once your instructors publish your grades.</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -322,7 +230,7 @@ export function StudentResults() {
                   {/* Department Header */}
                   <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 p-4 text-white">
                     <h2 className="text-lg font-bold">{deptName}</h2>
-                    <p className="text-indigo-100 text-sm">{deptData.faculty_name}</p>
+                    <p className="text-indigo-100 text-sm">{deptData.facultyName}</p>
                   </div>
 
                   {/* Programs */}
@@ -363,12 +271,12 @@ export function StudentResults() {
                               </thead>
                               <tbody className="divide-y divide-gray-200">
                                 {programResults.map((result: ModuleResult) => (
-                                  <tr key={result.module_id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-4 py-4 text-sm font-medium text-gray-900">{result.module_code}</td>
-                                    <td className="px-4 py-4 text-sm text-gray-900">{result.module_name}</td>
+                                  <tr key={result.moduleId} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-4 py-4 text-sm font-medium text-gray-900">{result.moduleCode}</td>
+                                    <td className="px-4 py-4 text-sm text-gray-900">{result.moduleName}</td>
                                     <td className="px-4 py-4 text-sm text-center">
                                       <span className="inline-flex items-center justify-center bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold">
-                                        {result.credit_score}
+                                        {result.creditScore}
                                       </span>
                                     </td>
                                     <td className="px-4 py-4 text-sm text-center">

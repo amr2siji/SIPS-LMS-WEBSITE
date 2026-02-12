@@ -1,60 +1,62 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, CheckCircle, XCircle, DollarSign, Calendar, CreditCard, FileText, Eye, AlertCircle, X } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { ArrowLeft, Search, CheckCircle, XCircle, DollarSign, Calendar, FileText, Eye, AlertCircle, X } from 'lucide-react';
+import * as adminService from '../../services/adminService';
 
 interface Payment {
-  id: string;
-  student_id: string;
+  id: number;
+  studentNic: string;
+  studentName: string;
+  programId?: number;
+  programName?: string;
+  intakeId?: number;
+  intakeName?: string;
   amount: number;
-  payment_date: string;
-  payment_method: string;
-  payment_type?: string;
-  installment_number?: number;
-  total_installments?: number;
+  paymentType: string;
+  proofFileUrl?: string;
   status: string;
-  reference_number: string;
-  payment_proof_url?: string;
-  rejection_reason?: string;
-  verified_by?: string;
-  verified_at?: string;
-  students?: {
-    name_with_initials: string;
-    nic: string;
-    program_id?: string;
-    faculty_id?: string;
-    department_id?: string;
-    intake_id?: string;
-    programs?: {
-      name: string;
-    };
-  };
+  rejectionReason?: string;
+  verifiedBy?: number;
+  verifiedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 interface Faculty {
-  id: string;
+  id: number;
   name: string;
 }
 
 interface Department {
-  id: string;
-  name: string;
-  faculty_id: string;
+  id: number;
+  departmentName: string;
+  facultyId: number;
 }
 
 interface Program {
-  id: string;
+  id: number;
   name: string;
-  department_id: string;
+  departmentId: number;
 }
 
 interface Intake {
-  id: string;
-  intake_name: string;
-  intake_year: number;
-  intake_month: number;
-  program_id: string;
+  id: number;
+  intakeName: string;
+  intakeYear: number;
+  intakeMonth: number;
+  programId: number;
 }
+
+// Helper function to convert date array from backend to Date object
+const convertArrayToDate = (dateArray: number[]): string => {
+  if (!Array.isArray(dateArray) || dateArray.length < 3) {
+    return new Date().toISOString();
+  }
+  // Backend returns: [year, month, day, hour, minute, second, nanosecond]
+  const [year, month, day, hour = 0, minute = 0, second = 0] = dateArray;
+  // Month is 1-based in Java, but 0-based in JavaScript
+  return new Date(year, month - 1, day, hour, minute, second).toISOString();
+};
 
 export function VerifyPayments() {
   const navigate = useNavigate();
@@ -112,12 +114,12 @@ export function VerifyPayments() {
 
   const loadFaculties = async () => {
     try {
-      const { data } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-      setFaculties(data || []);
+      const result = await adminService.getFaculties();
+      if (result.success && result.data) {
+        // Handle both ApiResponse<T> and direct array response
+        const facultiesData = Array.isArray(result.data) ? result.data : (result.data as any).data || [];
+        setFaculties(facultiesData.map((f: any) => ({ id: f.id, name: f.name })));
+      }
     } catch (error) {
       console.error('Error loading faculties:', error);
     }
@@ -125,13 +127,15 @@ export function VerifyPayments() {
 
   const loadDepartmentsByFaculty = async (facultyId: string) => {
     try {
-      const { data } = await supabase
-        .from('departments')
-        .select('id, name, faculty_id')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
-      setDepartments(data || []);
+      const result = await adminService.getDepartmentsByFaculty(Number(facultyId));
+      if (result.success && result.data) {
+        const deptData = Array.isArray(result.data) ? result.data : (result.data as any).data || [];
+        setDepartments(deptData.map((d: any) => ({ 
+          id: d.id, 
+          departmentName: d.departmentName, 
+          facultyId: d.facultyId 
+        })));
+      }
     } catch (error) {
       console.error('Error loading departments:', error);
     }
@@ -139,13 +143,15 @@ export function VerifyPayments() {
 
   const loadProgramsByDepartment = async (departmentId: string) => {
     try {
-      const { data } = await supabase
-        .from('programs')
-        .select('id, name, department_id')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-      setPrograms(data || []);
+      const result = await adminService.getProgramsByDepartment(Number(departmentId));
+      if (result.success && result.data) {
+        const progData = Array.isArray(result.data) ? result.data : (result.data as any).data || [];
+        setPrograms(progData.map((p: any) => ({ 
+          id: p.id, 
+          name: p.name, 
+          departmentId: p.departmentId 
+        })));
+      }
     } catch (error) {
       console.error('Error loading programs:', error);
     }
@@ -153,14 +159,17 @@ export function VerifyPayments() {
 
   const loadIntakesByProgram = async (programId: string) => {
     try {
-      const { data } = await supabase
-        .from('intakes')
-        .select('id, intake_name, intake_year, intake_month, program_id')
-        .eq('program_id', programId)
-        .eq('is_active', true)
-        .order('intake_year', { ascending: false })
-        .order('intake_month', { ascending: false });
-      setIntakes(data || []);
+      const result = await adminService.getIntakesByProgram(Number(programId));
+      if (result.success && result.data) {
+        const intakeData = Array.isArray(result.data) ? result.data : (result.data as any).data || [];
+        setIntakes(intakeData.map((i: any) => ({
+          id: i.id,
+          intakeName: i.intakeName,
+          intakeYear: i.intakeYear,
+          intakeMonth: i.intakeMonth,
+          programId: i.programId
+        })));
+      }
     } catch (error) {
       console.error('Error loading intakes:', error);
     }
@@ -170,68 +179,72 @@ export function VerifyPayments() {
     try {
       setLoading(true);
       
-      // Load payments and students separately
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('payments')
-        .select('*')
-        .order('payment_date', { ascending: false });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      if (paymentsError) throw paymentsError;
-
-      // Load students with their programs
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select(`
-          id,
-          name_with_initials,
-          nic,
-          program_id,
-          faculty_id,
-          department_id,
-          programs (
-            name
-          )
-        `);
-
-      if (studentsError) throw studentsError;
-
-      // Match payments with students
-      const paymentsWithStudents = (paymentsData || []).map((payment: any) => {
-        const student = (studentsData || []).find((s: any) => s.id === payment.student_id);
-        return {
-          ...payment,
-          students: student
-        };
+      const response = await fetch(`${API_BASE_URL}/api/admin/payments`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      setPayments(paymentsWithStudents);
+      if (!response.ok) {
+        throw new Error('Failed to load payments');
+      }
+
+      const paymentsData = await response.json();
+      console.log('Payments loaded:', paymentsData);
+      
+      // Convert date arrays to ISO strings
+      const processedPayments = Array.isArray(paymentsData) 
+        ? paymentsData.map((payment: any) => ({
+            ...payment,
+            createdAt: Array.isArray(payment.createdAt) 
+              ? convertArrayToDate(payment.createdAt) 
+              : payment.createdAt,
+            updatedAt: Array.isArray(payment.updatedAt) 
+              ? convertArrayToDate(payment.updatedAt) 
+              : payment.updatedAt,
+            verifiedAt: payment.verifiedAt && Array.isArray(payment.verifiedAt)
+              ? convertArrayToDate(payment.verifiedAt) 
+              : payment.verifiedAt
+          }))
+        : [];
+      
+      setPayments(processedPayments);
     } catch (error) {
       console.error('Error loading payments:', error);
+      setPayments([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerify = async (payment: Payment) => {
-    if (!confirm(`Verify payment of Rs. ${payment.amount} from ${payment.students?.name_with_initials}?`)) {
+    if (!confirm(`Verify payment of Rs. ${payment.amount} from ${payment.studentName}?`)) {
       return;
     }
 
     setProcessing(true);
     try {
-      const supabaseAny = supabase as any;
-      const currentUser = await supabase.auth.getUser();
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      const { error } = await supabaseAny
-        .from('payments')
-        .update({
-          status: 'verified',
-          verified_by: currentUser.data.user?.id,
-          verified_at: new Date().toISOString()
+      const response = await fetch(`${API_BASE_URL}/api/admin/payments/${payment.id}/verify`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          approved: true
         })
-        .eq('id', payment.id);
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Failed to verify payment');
+      }
 
       alert('Payment verified successfully!');
       loadPayments();
@@ -251,20 +264,24 @@ export function VerifyPayments() {
 
     setProcessing(true);
     try {
-      const supabaseAny = supabase as any;
-      const currentUser = await supabase.auth.getUser();
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
 
-      const { error } = await supabaseAny
-        .from('payments')
-        .update({
-          status: 'rejected',
-          rejection_reason: rejectionReason,
-          verified_by: currentUser.data.user?.id,
-          verified_at: new Date().toISOString()
+      const response = await fetch(`${API_BASE_URL}/api/admin/payments/${selectedPayment.id}/verify`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          approved: false,
+          rejectionReason: rejectionReason
         })
-        .eq('id', selectedPayment.id);
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Failed to reject payment');
+      }
 
       alert('Payment rejected');
       setShowRejectModal(false);
@@ -281,18 +298,15 @@ export function VerifyPayments() {
 
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = 
-      payment.students?.name_with_initials?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.students?.nic?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.reference_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      payment.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.studentNic?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || payment.status === filterStatus;
-    const matchesPaymentType = filterPaymentType === 'all' || payment.payment_type === filterPaymentType;
-    const matchesFaculty = filterFaculty === 'all' || payment.students?.faculty_id === filterFaculty;
-    const matchesDepartment = filterDepartment === 'all' || payment.students?.department_id === filterDepartment;
-    const matchesProgram = filterProgram === 'all' || payment.students?.program_id === filterProgram;
-    const matchesIntake = filterIntake === 'all' || payment.students?.intake_id === filterIntake;
-    
-    return matchesSearch && matchesStatus && matchesPaymentType && matchesFaculty && matchesDepartment && matchesProgram && matchesIntake;
+    const matchesPaymentType = filterPaymentType === 'all' || payment.paymentType === filterPaymentType;
+    const matchesProgram = filterProgram === 'all' || payment.programId?.toString() === filterProgram;
+    const matchesIntake = filterIntake === 'all' || payment.intakeId?.toString() === filterIntake;
+
+    return matchesSearch && matchesStatus && matchesPaymentType && matchesProgram && matchesIntake;
   });
 
   const resetFilters = () => {
@@ -314,7 +328,7 @@ export function VerifyPayments() {
     return styles[status as keyof typeof styles] || styles.pending;
   };
 
-  const totalAmount = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
+  const totalAmount = filteredPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -428,7 +442,7 @@ export function VerifyPayments() {
               >
                 <option value="all">All Departments</option>
                 {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                  <option key={d.id} value={d.id}>{d.departmentName}</option>
                 ))}
               </select>
             </div>
@@ -456,10 +470,10 @@ export function VerifyPayments() {
                 <option value="all">All Intakes</option>
                 {intakes.map(intake => {
                   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                  const monthName = monthNames[intake.intake_month - 1];
+                  const monthName = monthNames[intake.intakeMonth - 1];
                   return (
                     <option key={intake.id} value={intake.id}>
-                      {intake.intake_name} ({monthName} {intake.intake_year})
+                      {intake.intakeName} ({monthName} {intake.intakeYear})
                     </option>
                   );
                 })}
@@ -504,10 +518,10 @@ export function VerifyPayments() {
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="text-lg font-bold text-gray-900">{payment.students?.name_with_initials || 'N/A'}</h3>
-                        <p className="text-sm text-gray-500">NIC: {payment.students?.nic}</p>
-                        {payment.students?.programs && (
-                          <p className="text-sm text-emerald-600 font-semibold">{payment.students.programs.name}</p>
+                        <h3 className="text-lg font-bold text-gray-900">{payment.studentName || 'N/A'}</h3>
+                        <p className="text-sm text-gray-500">NIC: {payment.studentNic}</p>
+                        {payment.programName && (
+                          <p className="text-sm text-emerald-600 font-semibold">{payment.programName}</p>
                         )}
                       </div>
                       <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(payment.status)}`}>
@@ -519,35 +533,36 @@ export function VerifyPayments() {
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <DollarSign size={16} className="text-green-600" />
                         <span className="font-semibold">Amount:</span>
-                        <span className="text-green-600 font-bold">LKR {payment.amount.toLocaleString()}</span>
+                        {payment.amount ? (
+                          <span className="text-green-600 font-bold">LKR {payment.amount.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-gray-500 italic">Not Provided</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Calendar size={16} />
                         <span className="font-semibold">Date:</span>
-                        {new Date(payment.payment_date).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CreditCard size={16} />
-                        <span className="font-semibold">Method:</span>
-                        {payment.payment_method}
+                        {payment.createdAt ? (
+                          new Date(payment.createdAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        ) : 'N/A'}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <FileText size={16} />
-                        <span className="font-semibold">Reference:</span>
-                        {payment.reference_number}
+                        <span className="font-semibold">Type:</span>
+                        {payment.paymentType}
                       </div>
-                      {payment.payment_type === 'installment' && (
-                        <div className="flex items-center gap-2 text-sm text-emerald-600 col-span-2">
-                          <CreditCard size={16} />
-                          <span className="font-semibold">Installment {payment.installment_number} of {payment.total_installments}</span>
-                        </div>
-                      )}
-                      {payment.rejection_reason && (
+                      {payment.rejectionReason && (
                         <div className="col-span-2 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                           <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={16} />
                           <div>
                             <p className="text-sm font-semibold text-red-800">Rejection Reason:</p>
-                            <p className="text-sm text-red-700">{payment.rejection_reason}</p>
+                            <p className="text-sm text-red-700">{payment.rejectionReason}</p>
                           </div>
                         </div>
                       )}
@@ -578,7 +593,7 @@ export function VerifyPayments() {
                         </button>
                       </>
                     )}
-                    {payment.payment_proof_url && (
+                    {payment.proofFileUrl && (
                       <button
                         onClick={() => {
                           setSelectedPayment(payment);
@@ -603,7 +618,7 @@ export function VerifyPayments() {
             <div className="bg-white rounded-lg max-w-md w-full p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Reject Payment</h2>
               <p className="text-gray-600 mb-4">
-                Please provide a reason for rejecting payment from <strong>{selectedPayment.students?.name_with_initials}</strong>.
+                Please provide a reason for rejecting payment from <strong>{selectedPayment.studentName}</strong>.
               </p>
               <textarea
                 value={rejectionReason}
@@ -636,7 +651,7 @@ export function VerifyPayments() {
         )}
 
         {/* Payment Proof Modal */}
-        {showProofModal && selectedPayment && selectedPayment.payment_proof_url && (
+        {showProofModal && selectedPayment && selectedPayment.proofFileUrl && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
@@ -652,28 +667,50 @@ export function VerifyPayments() {
                 </button>
               </div>
               <div className="mb-4 text-sm text-gray-600">
-                <p><strong>Student:</strong> {selectedPayment.students?.name_with_initials}</p>
-                <p><strong>Amount:</strong> LKR {selectedPayment.amount.toLocaleString()}</p>
-                <p><strong>Reference:</strong> {selectedPayment.reference_number}</p>
+                <p><strong>Student:</strong> {selectedPayment.studentName}</p>
+                <p><strong>Amount:</strong> {selectedPayment.amount ? `LKR ${selectedPayment.amount.toLocaleString()}` : 'Not Provided'}</p>
               </div>
-              <div className="border rounded-lg overflow-hidden">
-                <img 
-                  src={selectedPayment.payment_proof_url} 
-                  alt="Payment Proof" 
-                  className="w-full h-auto"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==';
-                  }}
-                />
-              </div>
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={() => window.open(selectedPayment.payment_proof_url, '_blank')}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Open in New Tab
-                </button>
-              </div>
+              
+              {/* Check if it's a PDF or image */}
+              {selectedPayment.proofFileUrl.toLowerCase().endsWith('.pdf') ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 bg-gray-50">
+                  <div className="text-center">
+                    <FileText className="mx-auto text-red-500 mb-4" size={64} />
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">PDF Payment Proof</h3>
+                    <p className="text-gray-600 mb-6">
+                      This is a PDF document. Click the button below to open and view the payment proof in a new tab.
+                    </p>
+                    <button
+                      onClick={() => window.open(selectedPayment.proofFileUrl, '_blank')}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors"
+                    >
+                      <FileText size={20} />
+                      Open PDF in New Tab
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="border rounded-lg overflow-hidden bg-gray-50">
+                    <img 
+                      src={selectedPayment.proofFileUrl}
+                      alt="Payment Proof" 
+                      className="w-full h-auto"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==';
+                      }}
+                    />
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={() => window.open(selectedPayment.proofFileUrl, '_blank')}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Open in New Tab
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

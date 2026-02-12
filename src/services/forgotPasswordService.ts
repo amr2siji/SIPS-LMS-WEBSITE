@@ -26,8 +26,7 @@ export class ForgotPasswordService extends ApiService {
             const result: ApiResponseData = await response.json();
             console.log('📧 Password reset response:', result);
             
-            // Check for both '000' (app success code) and '200' (HTTP success as statusCode)
-            if (result.statusCode === '000' || result.statusCode === '200' || response.ok) {
+            if (result.statusCode === '000') {
                 console.log('✅ Reset code sent successfully, masked email:', result.data);
                 return { success: true, maskedEmail: result.data, message: result.message };
             } else {
@@ -50,8 +49,7 @@ export class ForgotPasswordService extends ApiService {
 
             const result: ApiResponseData = await response.json();
 
-            // Check for both '000' (app success code) and '200' (HTTP success as statusCode)
-            if (result.statusCode === '000' || result.statusCode === '200' || response.ok) {
+            if (result.statusCode === '000') {
                 return { success: true, message: result.message };
             } else {
                 return { success: false, message: result.message || 'Invalid or expired reset code' };
@@ -71,8 +69,7 @@ export class ForgotPasswordService extends ApiService {
 
             const result: ApiResponseData = await response.json();
 
-            // Check for both '000' (app success code) and '200' (HTTP success as statusCode)
-            if (result.statusCode === '000' || result.statusCode === '200' || response.ok) {
+            if (result.statusCode === '000') {
                 return { success: true, message: result.message };
             } else {
                 return { success: false, message: result.message || 'Failed to reset password' };

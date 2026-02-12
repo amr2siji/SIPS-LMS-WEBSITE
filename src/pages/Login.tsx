@@ -41,8 +41,22 @@ export function Login() {
       // Navigation will be handled by the useEffect above when auth state changes
     } catch (err: any) {
       console.error('Login error:', err);
+      
+      // Check if this is a password change required error (statusCode 016)
+      if (err.statusCode === '016' || err.name === 'PasswordChangeRequired') {
+        console.log('🔄 Redirecting to password change page');
+        // Redirect to first-time password change page
+        navigate('/first-time-password-change', {
+          state: {
+            nic: nic.trim(),
+            defaultPassword: password
+          }
+        });
+        // Don't set loading to false, let the navigation happen
+        return;
+      }
+      
       setError(err.message || 'Invalid NIC or password. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -183,12 +197,6 @@ export function Login() {
               <p className="text-emerald-200 text-sm mb-4">
                 First Time User? Contact Admin for Account Activation
               </p>
-              <div className="text-xs text-emerald-300 bg-emerald-800 p-3 rounded">
-                <p><strong>Test Credentials:</strong></p>
-                <p>Admin: 199912345678 / Admin@123</p>
-                <p>Lecturer: 198001234567 / Lecturer@123</p>
-                <p>Student: 200001234567 / Student@123</p>
-              </div>
             </div>
           </div>
 

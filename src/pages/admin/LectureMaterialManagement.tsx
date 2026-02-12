@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Plus, Edit2, Trash2, X, FileText, Download, Eye, EyeOff, Upload as UploadIcon, File, Loader } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { uploadLectureMaterialFile, validateFile } from '../../services/fileUploadService';
+import { adminService } from '../../services/adminService';
+import { intakeModuleService } from '../../services/intakeModuleService';
 
 interface LectureMaterial {
   id: string;
@@ -89,10 +91,7 @@ export function LectureMaterialManagement() {
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
 
-  // Form-specific dropdown data
-  const [formFaculties, setFormFaculties] = useState<Faculty[]>([]);
-  const [formDepartments, setFormDepartments] = useState<Department[]>([]);
-  const [formPrograms, setFormPrograms] = useState<Program[]>([]);
+  // Form-specific dropdown data (simplified - only intakes and courses needed)
   const [formIntakes, setFormIntakes] = useState<Intake[]>([]);
   const [formCourses, setFormCourses] = useState<Course[]>([]);
 
@@ -100,9 +99,7 @@ export function LectureMaterialManagement() {
   const [formData, setFormData] = useState({
     title: '',
     week_number: 1,
-    faculty_id_temp: '', // Temporary for form selection
-    department_id_temp: '', // Temporary for form selection
-    program_id_temp: '', // Temporary for form selection only
+    // Removed: faculty_id_temp, department_id_temp, program_id_temp - use intake-based selection
     intake_id_temp: '', // Temporary for form selection only
     module_id: '',
     file_type: 'pdf' as 'ppt' | 'word' | 'pdf' | 'excel',
@@ -118,47 +115,17 @@ export function LectureMaterialManagement() {
     loadFaculties();
     loadIntakes();
     loadAllPrograms();
-    loadFormFaculties();
+    loadAllIntakes(); // Load all intakes for form
   }, []);
 
-  // Form cascading dropdowns
+  // When intake is selected, load modules for that intake
   useEffect(() => {
-    if (formData.faculty_id_temp) {
-      loadFormDepartments(formData.faculty_id_temp);
-    } else {
-      setFormDepartments([]);
-      setFormPrograms([]);
-      setFormIntakes([]);
-      setFormCourses([]);
-    }
-  }, [formData.faculty_id_temp]);
-
-  useEffect(() => {
-    if (formData.department_id_temp) {
-      loadFormPrograms(formData.department_id_temp);
-    } else {
-      setFormPrograms([]);
-      setFormIntakes([]);
-      setFormCourses([]);
-    }
-  }, [formData.department_id_temp]);
-
-  useEffect(() => {
-    if (formData.program_id_temp) {
-      loadFormIntakes(formData.program_id_temp);
-    } else {
-      setFormIntakes([]);
-      setFormCourses([]);
-    }
-  }, [formData.program_id_temp]);
-
-  useEffect(() => {
-    if (formData.program_id_temp && formData.intake_id_temp) {
-      loadFormCourses(formData.program_id_temp, formData.intake_id_temp);
+    if (formData.intake_id_temp && formData.intake_id_temp !== '') {
+      loadModulesForIntake(Number(formData.intake_id_temp));
     } else {
       setFormCourses([]);
     }
-  }, [formData.program_id_temp, formData.intake_id_temp]);
+  }, [formData.intake_id_temp]);
 
   // Filter dropdowns
   useEffect(() => {
@@ -190,12 +157,10 @@ export function LectureMaterialManagement() {
 
   const loadFaculties = async () => {
     try {
-      const { data } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-      setFaculties(data || []);
+      const result = await adminService.getFaculties();
+      if (result.success && result.data) {
+        setFaculties(result.data);
+      }
     } catch (error) {
       console.error('Error loading faculties:', error);
     }
@@ -203,13 +168,10 @@ export function LectureMaterialManagement() {
 
   const loadDepartmentsByFaculty = async (facultyId: string) => {
     try {
-      const { data } = await supabase
-        .from('departments')
-        .select('id, name, faculty_id')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
-      setDepartments(data || []);
+      const result = await adminService.getDepartmentsByFaculty(Number(facultyId));
+      if (result.success && result.data) {
+        setDepartments(result.data);
+      }
     } catch (error) {
       console.error('Error loading departments:', error);
     }
@@ -217,13 +179,10 @@ export function LectureMaterialManagement() {
 
   const loadProgramsByDepartment = async (departmentId: string) => {
     try {
-      const { data } = await supabase
-        .from('programs')
-        .select('id, name, department_id')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-      setPrograms(data || []);
+      const result = await adminService.getProgramsByDepartment(Number(departmentId));
+      if (result.success && result.data) {
+        setPrograms(result.data);
+      }
     } catch (error) {
       console.error('Error loading programs:', error);
     }
@@ -231,12 +190,13 @@ export function LectureMaterialManagement() {
 
   const loadAllPrograms = async () => {
     try {
-      const { data } = await supabase
-        .from('programs')
-        .select('id, name, department_id')
-        .eq('is_active', true)
-        .order('name');
-      setPrograms(data || []);
+      // Load all programs - this might need a dedicated backend endpoint
+      const result = await adminService.getFaculties();
+      if (result.success && result.data) {
+        // For now, we'll load programs when a faculty is selected
+        // TODO: Add getAllPrograms() endpoint to backend
+        setPrograms([]);
+      }
     } catch (error) {
       console.error('Error loading programs:', error);
     }
@@ -244,150 +204,101 @@ export function LectureMaterialManagement() {
 
   const loadIntakes = async () => {
     try {
-      const { data } = await supabase
-        .from('intakes')
-        .select('id, intake_name, intake_year, intake_month')
-        .order('intake_year', { ascending: false })
-        .order('intake_month', { ascending: false });
-      
-      // Map to include 'name' property for backward compatibility
-      const mappedData = (data || []).map((intake: any) => ({
-        ...intake,
-        name: intake.intake_name
-      }));
-      
-      setIntakes(mappedData);
+      if (filterProgram) {
+        const result = await adminService.getIntakesByProgram(Number(filterProgram));
+        if (result.success && result.data) {
+          // Map to include 'name' property for backward compatibility
+          const mappedData = result.data.map((intake: any) => ({
+            ...intake,
+            name: intake.intake_name || intake.name
+          }));
+          setIntakes(mappedData);
+        }
+      }
     } catch (error) {
       console.error('Error loading intakes:', error);
     }
   };
 
-  const loadCoursesByProgramAndIntake = async (programId: string, _intakeId?: string) => {
+  const loadCoursesByProgramAndIntake = async (programId: string, intakeId?: string) => {
     try {
-      const { data } = await supabase
-        .from('courses')
-        .select('id, name, code')
-        .eq('program_id', programId)
-        .eq('is_active', true)
-        .order('code');
-      setCourses(data || []);
+      const result = await adminService.getModulesByProgramAndIntake(
+        Number(programId),
+        intakeId ? Number(intakeId) : 0
+      );
+      if (result.success && result.data) {
+        setCourses(result.data);
+      }
     } catch (error) {
       console.error('Error loading courses:', error);
     }
   };
 
   // Form-specific load functions
-  const loadFormFaculties = async () => {
+  // Load all intakes for form dropdown (no cascading needed)
+  const loadAllIntakes = async () => {
     try {
-      const { data } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-      setFormFaculties(data || []);
+      const token = localStorage.getItem('jwt_token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/intakes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Raw intake API response for lecture materials:', result);
+        if (result.data && Array.isArray(result.data)) {
+          const mappedIntakes = result.data.map((intake: any) => ({
+            id: intake.id,
+            name: `${intake.intakeName} - ${intake.programName} (${intake.facultyName})`,
+            intake_name: intake.intakeName,
+            intake_year: intake.intakeYear,
+            intake_month: intake.intakeMonth
+          }));
+          console.log('Mapped intakes for lecture material creation:', mappedIntakes);
+          setFormIntakes(mappedIntakes);
+        }
+      }
     } catch (error) {
-      console.error('Error loading form faculties:', error);
+      console.error('Error loading all intakes:', error);
+      setFormIntakes([]);
     }
   };
 
-  const loadFormDepartments = async (facultyId: string) => {
+  // Load modules for selected intake using intakeModuleService
+  const loadModulesForIntake = async (intakeId: number) => {
     try {
-      const { data } = await supabase
-        .from('departments')
-        .select('id, name, faculty_id')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
-      setFormDepartments(data || []);
+      console.log('Loading modules for intake ID:', intakeId);
+      const response = await intakeModuleService.getModulesByIntake(intakeId);
+      console.log('Modules response from intakeModuleService:', response);
+      if (response && response.success && response.data) {
+        const mappedModules = response.data.map((im: any) => ({
+          id: im.moduleId,
+          name: im.moduleName,
+          code: im.moduleCode
+        }));
+        console.log('Mapped modules for lecture material creation:', mappedModules);
+        setFormCourses(mappedModules);
+      } else {
+        console.warn('No modules found for intake:', intakeId);
+        setFormCourses([]);
+      }
     } catch (error) {
-      console.error('Error loading form departments:', error);
-    }
-  };
-
-  const loadFormPrograms = async (departmentId: string) => {
-    try {
-      const { data } = await supabase
-        .from('programs')
-        .select('id, name, department_id')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-      setFormPrograms(data || []);
-    } catch (error) {
-      console.error('Error loading form programs:', error);
-    }
-  };
-
-  const loadFormIntakes = async (programId: string) => {
-    try {
-      const { data } = await supabase
-        .from('intakes')
-        .select('id, intake_name, intake_year, intake_month, program_id')
-        .eq('program_id', programId)
-        .order('intake_year', { ascending: false })
-        .order('intake_month', { ascending: false });
-      
-      const mappedData = (data || []).map((intake: any) => ({
-        ...intake,
-        name: intake.intake_name
-      }));
-      
-      setFormIntakes(mappedData);
-    } catch (error) {
-      console.error('Error loading form intakes:', error);
-    }
-  };
-
-  const loadFormCourses = async (programId: string, intakeId: string) => {
-    try {
-      const { data } = await supabase
-        .from('modules')
-        .select('id, module_name, module_code, program_id, intake_id')
-        .eq('program_id', programId)
-        .eq('intake_id', intakeId)
-        .eq('is_active', true)
-        .order('module_code');
-      
-      // Map to match Course interface
-      const mappedData = (data || []).map((module: any) => ({
-        id: module.id,
-        name: module.module_name,
-        code: module.module_code,
-        program_id: module.program_id
-      }));
-      
-      setFormCourses(mappedData);
-    } catch (error) {
-      console.error('Error loading form courses:', error);
+      console.error('Error loading modules for intake:', error);
+      setFormCourses([]);
     }
   };
 
   const loadMaterials = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('lecture_materials')
-        .select(`
-          *,
-          modules (
-            module_name,
-            module_code,
-            program_id,
-            programs (
-              name,
-              departments (
-                name,
-                faculties (
-                  name
-                )
-              )
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setMaterials(data || []);
+      const result = await adminService.getLectureMaterials(0, 100);
+      
+      if (result.success && result.data) {
+        setMaterials(result.data);
+      }
     } catch (error) {
       console.error('Error loading materials:', error);
     } finally {
@@ -399,44 +310,23 @@ export function LectureMaterialManagement() {
     try {
       setUploading(true);
       
-      // Validate file type
-      const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      ];
-
-      if (!allowedTypes.includes(file.type)) {
-        alert('Invalid file type. Please upload PDF, Word, Excel, or PowerPoint files.');
+      // Validate file using the service
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        alert(validation.error);
         return null;
       }
 
-      // Validate file size (50MB max)
-      const maxSize = 50 * 1024 * 1024;
-      if (file.size > maxSize) {
-        alert('File size exceeds 50MB limit.');
+      // Upload file to backend
+      const result = await uploadLectureMaterialFile(file);
+      
+      if (!result.success) {
+        alert(result.message || 'Failed to upload file');
         return null;
       }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `lecture-materials/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('lms-files')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('lms-files')
-        .getPublicUrl(filePath);
 
       // Auto-detect file type from extension
+      const fileExt = file.name.split('.').pop();
       let detectedFileType: 'ppt' | 'word' | 'pdf' | 'excel' = 'pdf';
       if (fileExt) {
         const ext = fileExt.toLowerCase();
@@ -448,7 +338,7 @@ export function LectureMaterialManagement() {
       
       setFormData(prev => ({ ...prev, file_type: detectedFileType }));
 
-      return publicUrl;
+      return result.fileUrl || null;
     } catch (error) {
       console.error('Error uploading file:', error);
       alert('Failed to upload file. Please try again.');
@@ -474,30 +364,27 @@ export function LectureMaterialManagement() {
     setProcessing(true);
 
     try {
-      const supabaseAny = supabase as any;
-
-      // Prepare data excluding temporary fields
-      const { faculty_id_temp, department_id_temp, program_id_temp, intake_id_temp, ...dbData } = formData;
+      // Prepare data excluding temporary fields (only intake_id_temp now)
+      const { intake_id_temp, ...dbData } = formData;
 
       if (editingMaterial) {
         // Update existing material
-        const { error } = await supabaseAny
-          .from('lecture_materials')
-          .update({
-            ...dbData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingMaterial.id);
+        const result = await adminService.updateLectureMaterial(Number(editingMaterial.id), {
+          ...dbData,
+          updated_at: new Date().toISOString(),
+        });
 
-        if (error) throw error;
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to update material');
+        }
         alert('Lecture material updated successfully!');
       } else {
         // Create new material
-        const { error } = await supabaseAny
-          .from('lecture_materials')
-          .insert(dbData);
+        const result = await adminService.createLectureMaterial(dbData);
 
-        if (error) throw error;
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to create material');
+        }
         alert('Lecture material created successfully!');
       }
 
@@ -516,37 +403,19 @@ export function LectureMaterialManagement() {
   const handleEdit = (material: LectureMaterial) => {
     setEditingMaterial(material);
     
-    // Get program_id from the nested modules relationship
-    const programId = material.modules?.program_id || '';
-    const departmentId = material.modules?.programs?.departments?.id || '';
-    const facultyId = material.modules?.programs?.departments?.faculties?.id || '';
-    
+    // For editing, user will need to select intake again (simplified approach)
+    // We can't easily determine which intake the module belongs to from the material
     setFormData({
       title: material.title,
       week_number: material.week_number,
-      faculty_id_temp: facultyId,
-      department_id_temp: departmentId,
-      program_id_temp: programId,
-      intake_id_temp: '', // Not available in modules table
+      // Removed: faculty_id_temp, department_id_temp, program_id_temp
+      intake_id_temp: '', // User will select intake again
       module_id: material.module_id,
       file_type: material.file_type,
       file_url: material.file_url,
       description: material.description || '',
       is_active: material.is_active,
     });
-    
-    // Load related dropdowns
-    if (facultyId) {
-      setFilterFaculty(facultyId);
-      loadDepartmentsByFaculty(facultyId);
-    }
-    if (departmentId) {
-      setFilterDepartment(departmentId);
-      loadProgramsByDepartment(departmentId);
-    }
-    if (programId) {
-      loadCoursesByProgramAndIntake(programId, ''); // Empty string for intake since not used
-    }
     
     setShowModal(true);
   };
@@ -558,13 +427,11 @@ export function LectureMaterialManagement() {
 
     setProcessing(true);
     try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny
-        .from('lecture_materials')
-        .delete()
-        .eq('id', id);
+      const result = await adminService.deleteLectureMaterial(Number(id));
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to delete material');
+      }
       alert('Lecture material deleted successfully!');
       loadMaterials();
     } catch (error: any) {
@@ -578,16 +445,11 @@ export function LectureMaterialManagement() {
   const handleToggleStatus = async (material: LectureMaterial) => {
     setProcessing(true);
     try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny
-        .from('lecture_materials')
-        .update({
-          is_active: !material.is_active,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', material.id);
+      const result = await adminService.toggleLectureMaterialPublishStatus(Number(material.id));
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to update status');
+      }
       loadMaterials();
     } catch (error: any) {
       console.error('Error updating status:', error);
@@ -601,9 +463,7 @@ export function LectureMaterialManagement() {
     setFormData({
       title: '',
       week_number: 1,
-      faculty_id_temp: '',
-      department_id_temp: '',
-      program_id_temp: '',
+      // Removed: faculty_id_temp, department_id_temp, program_id_temp
       intake_id_temp: '',
       module_id: '',
       file_type: 'pdf',
@@ -611,6 +471,7 @@ export function LectureMaterialManagement() {
       description: '',
       is_active: true,
     });
+    setFormCourses([]); // Clear modules when resetting
     setMaterialFile(null);
     setUploading(false);
   };
@@ -1050,120 +911,53 @@ export function LectureMaterialManagement() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Faculty *
-                      </label>
-                      <select
-                        required
-                        value={formData.faculty_id_temp}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          faculty_id_temp: e.target.value, 
-                          department_id_temp: '', 
-                          program_id_temp: '', 
-                          intake_id_temp: '', 
-                          module_id: '' 
-                        })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      >
-                        <option value="">Select Faculty</option>
-                        {formFaculties.map(f => (
-                          <option key={f.id} value={f.id}>{f.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Department *
-                      </label>
-                      <select
-                        required
-                        value={formData.department_id_temp}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          department_id_temp: e.target.value, 
-                          program_id_temp: '', 
-                          intake_id_temp: '', 
-                          module_id: '' 
-                        })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        disabled={!formData.faculty_id_temp}
-                      >
-                        <option value="">Select Department</option>
-                        {formDepartments.map(d => (
-                          <option key={d.id} value={d.id}>{d.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Program *
-                    </label>
-                    <select
-                      required
-                      value={formData.program_id_temp}
-                      onChange={(e) => setFormData({ 
-                        ...formData, 
-                        program_id_temp: e.target.value, 
-                        intake_id_temp: '', 
-                        module_id: '' 
-                      })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      disabled={!formData.department_id_temp}
-                    >
-                      <option value="">Select Program</option>
-                      {formPrograms.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Intake (Month & Year) *
                     </label>
-                    <select
-                      required
-                      value={formData.intake_id_temp}
-                      onChange={(e) => setFormData({ ...formData, intake_id_temp: e.target.value, module_id: '' })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      disabled={!formData.program_id_temp}
-                    >
-                      <option value="">Select Intake</option>
-                      {formIntakes.map(i => {
-                        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                        const monthName = i.intake_month ? monthNames[i.intake_month - 1] : '';
-                        const displayText = i.intake_year && i.intake_month 
-                          ? `${i.intake_name} (${monthName} ${i.intake_year})`
-                          : i.name;
-                        return (
-                          <option key={i.id} value={i.id}>{displayText}</option>
-                        );
-                      })}
-                    </select>
+                    {formIntakes.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>Loading intakes...</p>
+                        <p className="text-sm mt-2">If no intakes appear, please create intakes in Intake Management first.</p>
+                      </div>
+                    ) : (
+                      <select
+                        required
+                        value={formData.intake_id_temp}
+                        onChange={(e) => setFormData({ ...formData, intake_id_temp: e.target.value, module_id: '' })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="">Select Intake</option>
+                        {formIntakes.map(i => (
+                          <option key={i.id} value={i.id}>{i.name}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Module *
                     </label>
-                    <select
-                      required
-                      value={formData.module_id}
-                      onChange={(e) => setFormData({ ...formData, module_id: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      disabled={!formData.program_id_temp || !formData.intake_id_temp}
-                    >
-                      <option value="">Select Module</option>
-                      {formCourses.map(m => (
-                        <option key={m.id} value={m.id}>{m.code} - {m.name}</option>
-                      ))}
-                    </select>
+                    {formData.intake_id_temp && formCourses.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No modules assigned to this intake yet.</p>
+                        <p className="text-sm mt-2">Please assign modules to the intake first in Intake Management.</p>
+                      </div>
+                    ) : (
+                      <select
+                        required
+                        value={formData.module_id}
+                        onChange={(e) => setFormData({ ...formData, module_id: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        disabled={!formData.intake_id_temp}
+                      >
+                        <option value="">Select Module</option>
+                        {formCourses.map(m => (
+                          <option key={m.id} value={m.id}>{m.code} - {m.name}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   <div>

@@ -11,6 +11,8 @@ export interface LoginResponse {
     nic: string;
     fullName?: string;
     expiresIn?: number;
+    statusCode?: string; // For detecting special cases like PASSWORD_CHANGE_REQUIRED
+    message?: string;
 }
 
 export interface RefreshTokenResponse {
@@ -55,11 +57,21 @@ export class AuthService extends ApiService {
             console.log('Backend response status:', response.status);
             console.log('Backend response data:', result);
 
-            // Check if response is successful based on the actual backend format
-            if (response.ok && result.statusCode === "200" && result.message === "Login successful") {
+            // Check for PASSWORD_CHANGE_REQUIRED (016)
+            if (result.statusCode === '016') {
+                console.log('⚠️ Password change required');
+                // Create a proper Error with statusCode attached
+                const error: any = new Error(result.message || 'You must change your password before logging in');
+                error.name = 'PasswordChangeRequired';
+                error.statusCode = '016';
+                throw error;
+            }
+
+            // Check for application success code '000'
+            if (result.statusCode === '000') {
                 const responseData = result.data;
                 
-                console.log('Response data:', responseData);
+                console.log('✅ Login successful, response data:', responseData);
 
                 // Store JWT token and user info
                 localStorage.setItem('jwt_token', responseData.token);
@@ -80,11 +92,16 @@ export class AuthService extends ApiService {
                     expiresIn: 86400 // 24 hours default
                 };
             } else {
-                console.log('Login failed - result:', result);
+                console.log('❌ Login failed - statusCode:', result.statusCode, 'message:', result.message);
                 throw new Error(result.message || 'Login failed');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Login error:', error);
+            // If it's the password change required error, preserve it
+            if (error.statusCode === '016' || error.name === 'PasswordChangeRequired') {
+                throw error;
+            }
+            // For other errors, wrap in Error if needed
             throw error instanceof Error ? error : new Error('Login failed');
         }
     }
@@ -259,6 +276,62 @@ export class AuthService extends ApiService {
         // Setup auto-refresh
         this.setupTokenRefresh();
         return true;
+    }
+
+    /**
+     * First-time password change for new users
+     */
+    async firstTimePasswordChange(data: {
+        nic: string;
+        currentPassword: string;
+        newPassword: string;
+        confirmPassword: string;
+    }): Promise<LoginResponse> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/auth/first-time-password-change`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            
+            console.log('First-time password change response:', result);
+
+            // Check for application success code '000'
+            if (result.statusCode === '000') {
+                const responseData = result.data;
+                
+                console.log('✅ Password changed successfully, auto-logging in:', responseData);
+
+                // Store JWT token and user info (auto-login after password change)
+                localStorage.setItem('jwt_token', responseData.token);
+                localStorage.setItem('refresh_token', responseData.refreshToken);
+                localStorage.setItem('user_role', responseData.userType);
+                localStorage.setItem('user_nic', responseData.nic);
+                localStorage.setItem('user_email', responseData.email);
+                
+                if (responseData.fullName) {
+                    localStorage.setItem('user_name', responseData.fullName);
+                }
+
+                return {
+                    token: responseData.token,
+                    role: responseData.userType,
+                    nic: responseData.nic,
+                    fullName: responseData.fullName,
+                    expiresIn: 86400
+                };
+            } else {
+                console.log('❌ Password change failed - statusCode:', result.statusCode, 'message:', result.message);
+                throw new Error(result.message || 'Password change failed');
+            }
+        } catch (error) {
+            console.error('Password change error:', error);
+            throw error instanceof Error ? error : new Error('Password change failed');
+        }
     }
 }
 

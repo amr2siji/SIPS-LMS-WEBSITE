@@ -1,362 +1,301 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Book, Edit, Trash2, CheckCircle, XCircle, X, AlertTriangle, Calendar } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { Plus, Search, Edit, Trash2, Book, ArrowLeft, Calendar, X, AlertTriangle } from 'lucide-react';
+
+// Import API services
+import { moduleService } from '../../services/moduleService';
+import { academicStructureService } from '../../services/academicStructureService';
+
+// Types
+interface Module {
+  id: number;
+  moduleCode: string;
+  moduleName: string;
+  description?: string;
+  creditScore: number;
+  facultyName: string;
+  departmentName: string;
+  programName: string;
+  isActive: boolean;
+}
 
 interface Faculty {
-  id: string;
+  id: number;
   name: string;
 }
 
 interface Department {
-  id: string;
+  id: number;
   name: string;
-  faculty_id: string;
 }
 
 interface Program {
-  id: string;
+  id: number;
   name: string;
-  program_type: string;
-  department_id: string;
-  image_url?: string;
-  payment_type: string;
-  program_amount: number;
-  duration_months: number;
 }
 
-interface Intake {
-  id: string;
-  intake_name: string;
-  intake_year: number;
-  intake_month: number;
-  program_id: string;
-}
-
-interface Module {
-  id: string;
-  module_code: string;
-  module_name: string;
-  description: string;
-  credit_score: number;
-  is_active: boolean;
-  program_id: string;
-  intake_id: string;
-  programs?: {
-    name: string;
-  };
-  intakes?: {
-    intake_name: string;
-    intake_year: number;
-    intake_month: number;
-  };
-}
-
-export function ModuleManagement() {
+const ModuleManagement: React.FC = () => {
   const navigate = useNavigate();
+
+  // State management
   const [modules, setModules] = useState<Module[]>([]);
-  const [faculties, setFaculties] = useState<Faculty[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [programs, setPrograms] = useState<Program[]>([]);
-  
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingModule, setEditingModule] = useState<Module | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [moduleToToggle, setModuleToToggle] = useState<{ id: string; currentStatus: boolean; name: string } | null>(null);
-  
-  // Filter states
-  const [filterFaculty, setFilterFaculty] = useState('all');
-  const [filterDepartment, setFilterDepartment] = useState('all');
-  const [filterProgram, setFilterProgram] = useState('all');
-  const [filterIntake, setFilterIntake] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Dropdown data for filters
-  const [filterFaculties, setFilterFaculties] = useState<Faculty[]>([]);
-  const [filterDepartments, setFilterDepartments] = useState<Department[]>([]);
-  const [filterPrograms, setFilterPrograms] = useState<Program[]>([]);
-  const [filterIntakes, setFilterIntakes] = useState<Intake[]>([]);
-  
-  // Form state
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [step, setStep] = useState(1);
+  const [editingModule, setEditingModule] = useState<any>(null);
+
+  // Form state
   const [selectedFaculty, setSelectedFaculty] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedProgram, setSelectedProgram] = useState('');
-  const [selectedYear, setSelectedYear] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
   const [moduleCode, setModuleCode] = useState('');
   const [moduleName, setModuleName] = useState('');
   const [moduleDescription, setModuleDescription] = useState('');
   const [creditScore, setCreditScore] = useState(3);
 
+  // Dropdown data
+  const [faculties, setFaculties] = useState<Faculty[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
+
+  // Delete confirmation
+  const [moduleToToggle, setModuleToToggle] = useState<{
+    id: string;
+    currentStatus: boolean;
+    name: string;
+  } | null>(null);
+
+  // Custom notification modal states
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationConfig, setNotificationConfig] = useState({
+    type: 'success' as 'success' | 'error' | 'warning' | 'info',
+    title: '',
+    message: '',
+    details: [] as string[]
+  });
+
+  // Helper functions for custom modals
+  const showSuccessNotification = (title: string, message: string, details: string[] = []) => {
+    setNotificationConfig({ type: 'success', title, message, details });
+    setShowNotification(true);
+  };
+
+  const showErrorNotification = (title: string, message: string, details: string[] = []) => {
+    setNotificationConfig({ type: 'error', title, message, details });
+    setShowNotification(true);
+  };
+
+  // Load initial data
   useEffect(() => {
     loadModules();
     loadFaculties();
-    loadFilterFaculties();
   }, []);
 
-  useEffect(() => {
-    if (selectedFaculty) {
-      loadDepartments(selectedFaculty);
-      setSelectedDepartment(''); // Clear department when faculty changes
-      setPrograms([]); // Clear programs too
-      setSelectedProgram('');
-    } else {
-      setDepartments([]);
-      setPrograms([]);
-      setSelectedDepartment('');
-      setSelectedProgram('');
-    }
-  }, [selectedFaculty]);
-
-  useEffect(() => {
-    if (selectedDepartment) {
-      loadPrograms(selectedDepartment);
-      setSelectedProgram(''); // Clear program selection when department changes
-    } else {
-      setPrograms([]);
-      setSelectedProgram('');
-    }
-  }, [selectedDepartment]);
-
-  // Filter useEffects
-  useEffect(() => {
-    if (filterFaculty !== 'all') {
-      loadFilterDepartments(filterFaculty);
-    } else {
-      setFilterDepartments([]);
-      setFilterPrograms([]);
-      setFilterIntakes([]);
-    }
-  }, [filterFaculty]);
-
-  useEffect(() => {
-    if (filterDepartment !== 'all') {
-      loadFilterPrograms(filterDepartment);
-    } else {
-      setFilterPrograms([]);
-      setFilterIntakes([]);
-    }
-  }, [filterDepartment]);
-
-  useEffect(() => {
-    if (filterProgram !== 'all') {
-      loadFilterIntakes(filterProgram);
-    } else {
-      setFilterIntakes([]);
-    }
-  }, [filterProgram]);
-
-  const loadModules = async () => {
+  // Load modules with pagination
+  const loadModules = async (page = 0, search = '') => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('modules')
-        .select(`
-          *,
-          programs (name),
-          intakes (intake_name, intake_year, intake_month)
-        `)
-        .order('created_at', { ascending: false });
+      const response = await moduleService.searchModules({
+        page,
+        size: 12,
+        search: search || searchTerm,
+        isActive: true, // Only load active modules
+        sortBy: 'moduleName',
+        sortDirection: 'asc'
+      });
 
-      if (error) throw error;
-      setModules(data || []);
+      if (response.success && response.data) {
+        const moduleData = response.data.content || [];
+        console.log('Raw module data from API:', moduleData);
+        console.log('Number of modules:', moduleData.length);
+        
+        // Map the response to match our Module interface
+        const mappedModules = moduleData.map((module: any) => ({
+          id: module.id,
+          moduleCode: module.moduleCode,
+          moduleName: module.moduleName,
+          description: module.description,
+          creditScore: module.creditScore,
+          facultyName: module.facultyName,
+          departmentName: module.departmentName,
+          programName: module.programName,
+          isActive: module.isActive
+        }));
+        console.log('Mapped modules:', mappedModules);
+        setModules(mappedModules);
+        setTotalPages(response.data.totalPages || 0);
+        setTotalElements(response.data.totalElements || 0);
+        setCurrentPage(page || 0);
+        console.log('State updated - modules count:', mappedModules.length, 'totalElements:', response.data.totalElements);
+      }
     } catch (error) {
       console.error('Error loading modules:', error);
+      showErrorNotification('Loading Failed', 'Failed to load modules');
     } finally {
       setLoading(false);
     }
   };
 
+  // Load dropdown data
   const loadFaculties = async () => {
     try {
-      const { data, error } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFaculties(data || []);
+      const response = await academicStructureService.faculty.getDropdownOptions();
+      if (response.success && response.data) {
+        setFaculties(response.data);
+      }
     } catch (error) {
       console.error('Error loading faculties:', error);
     }
   };
 
-  const loadDepartments = async (facultyId: string) => {
+  const loadDepartments = async (facultyId: number) => {
     try {
-      const { data, error } = await supabase
-        .from('departments')
-        .select('id, name, faculty_id')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setDepartments(data || []);
+      const response = await academicStructureService.department.getDropdownOptionsByFaculty(facultyId);
+      if (response.success && response.data) {
+        setDepartments(response.data);
+        // Reset dependent selections
+        setSelectedDepartment('');
+        setSelectedProgram('');
+      }
     } catch (error) {
       console.error('Error loading departments:', error);
     }
   };
 
-  const loadPrograms = async (departmentId: string) => {
+  const loadPrograms = async (facultyId: number, departmentId: number) => {
     try {
-      const { data, error } = await supabase
-        .from('programs')
-        .select('*')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setPrograms(data || []);
+      const response = await academicStructureService.program.getDropdownOptions(facultyId, departmentId);
+      if (response.success && response.data) {
+        setPrograms(response.data);
+        // Reset dependent selections
+        setSelectedProgram('');
+      }
     } catch (error) {
       console.error('Error loading programs:', error);
     }
   };
 
-  // Filter load functions
-  const loadFilterFaculties = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('faculties')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFilterFaculties(data || []);
-    } catch (error) {
-      console.error('Error loading filter faculties:', error);
-    }
-  };
-
-  const loadFilterDepartments = async (facultyId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('departments')
-        .select('id, name, faculty_id')
-        .eq('faculty_id', facultyId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFilterDepartments(data || []);
-    } catch (error) {
-      console.error('Error loading filter departments:', error);
-    }
-  };
-
-  const loadFilterPrograms = async (departmentId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('programs')
-        .select('id, name, department_id')
-        .eq('department_id', departmentId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setFilterPrograms(data || []);
-    } catch (error) {
-      console.error('Error loading filter programs:', error);
-    }
-  };
-
-  const loadFilterIntakes = async (programId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('intakes')
-        .select('id, intake_name, intake_year, intake_month, program_id')
-        .eq('program_id', programId)
-        .eq('is_active', true)
-        .order('intake_year', { ascending: false })
-        .order('intake_month', { ascending: false });
-
-      if (error) throw error;
-      setFilterIntakes(data || []);
-    } catch (error) {
-      console.error('Error loading filter intakes:', error);
-    }
-  };
-
+  // Module CRUD operations
   const handleCreateModule = async () => {
-    if (!moduleCode || !moduleName || !selectedProgram || !selectedYear || !selectedMonth) {
-      alert('Please fill in all required fields');
+    if (!moduleCode || !moduleName || !selectedFaculty || !selectedDepartment || !selectedProgram) {
+      showErrorNotification('Validation Error', 'Please fill in all required fields');
       return;
     }
 
     try {
-      const supabaseAny = supabase as any;
-      
-      // First, create a new intake
-      const intakeName = `Intake ${selectedMonth}/${selectedYear}`;
-      const { data: newIntake, error: intakeError } = await supabaseAny
-        .from('intakes')
-        .insert({
-          program_id: selectedProgram,
-          intake_name: intakeName,
-          intake_year: parseInt(selectedYear),
-          intake_month: parseInt(selectedMonth)
-        })
-        .select()
-        .single();
-
-      if (intakeError) throw intakeError;
-
-      // Then create the module with the new intake
-      const { error: moduleError } = await supabaseAny.from('modules').insert({
-        program_id: selectedProgram,
-        intake_id: newIntake.id,
-        module_code: moduleCode,
-        module_name: moduleName,
+      const moduleData = {
+        moduleCode: moduleCode.toUpperCase(),
+        moduleName: moduleName,
         description: moduleDescription,
-        credit_score: creditScore,
-        is_active: true
-      });
+        creditScore: creditScore,
+        facultyId: parseInt(selectedFaculty),
+        departmentId: parseInt(selectedDepartment),
+        programId: parseInt(selectedProgram)
+      };
 
-      if (moduleError) throw moduleError;
-
-      alert('Module and intake created successfully!');
-      resetForm();
-      loadModules();
+      const response = await moduleService.createModule(moduleData);
+      
+      if (response.success && response.data) {
+        showSuccessNotification(
+          'Module Created Successfully!',
+          `Module "${response.data.moduleCode} - ${response.data.moduleName}" has been created successfully.`,
+          [
+            `Faculty: ${response.data.facultyName}`,
+            `Department: ${response.data.departmentName}`,
+            `Program: ${response.data.programName}`
+          ]
+        );
+        setShowModal(false);
+        resetForm();
+        await loadModules(currentPage, searchTerm);
+      } else {
+        showErrorNotification('Creation Failed', response.message || 'Failed to create module');
+      }
     } catch (error: any) {
       console.error('Error creating module:', error);
-      alert('Failed to create module: ' + error.message);
+      showErrorNotification('Error', 'Failed to create module. Please try again.');
     }
   };
 
-  const handleToggleActive = (moduleId: string, currentStatus: boolean, moduleName: string) => {
-    setModuleToToggle({ id: moduleId, currentStatus, name: moduleName });
+  const handleEditModule = async () => {
+    if (!editingModule || !moduleCode || !moduleName) {
+      showErrorNotification('Validation Error', 'Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const updateData = {
+        moduleCode: moduleCode.toUpperCase(),
+        moduleName: moduleName,
+        description: moduleDescription,
+        creditScore: creditScore,
+        facultyId: editingModule.facultyId,
+        departmentId: editingModule.departmentId,
+        programId: editingModule.programId,
+        isActive: editingModule.isActive
+      };
+
+      const response = await moduleService.updateModule(editingModule.id, updateData);
+      
+      if (response.success && response.data) {
+        showSuccessNotification(
+          'Module Updated Successfully!',
+          `Module "${response.data.moduleCode} - ${response.data.moduleName}" has been updated successfully.`
+        );
+        setShowModal(false);
+        resetForm();
+        await loadModules(currentPage, searchTerm);
+      } else {
+        showErrorNotification('Update Failed', response.message || 'Failed to update module');
+      }
+    } catch (error: any) {
+      console.error('Error updating module:', error);
+      showErrorNotification('Error', 'Failed to update module. Please try again.');
+    }
+  };
+
+  const confirmDeleteModule = (module: any) => {
+    setModuleToToggle({
+      id: module.id.toString(),
+      currentStatus: module.isActive,
+      name: module.moduleName
+    });
     setShowConfirmModal(true);
   };
 
-  const confirmToggleActive = async () => {
+  const handleDeleteModule = async () => {
     if (!moduleToToggle) return;
 
     try {
-      const supabaseAny = supabase as any;
-      const { error } = await supabaseAny
-        .from('modules')
-        .update({ is_active: !moduleToToggle.currentStatus })
-        .eq('id', moduleToToggle.id);
-
-      if (error) throw error;
+      console.log('Deleting module:', moduleToToggle.id, 'Current page:', currentPage, 'Search term:', searchTerm);
+      const response = await moduleService.deleteModule(parseInt(moduleToToggle.id));
       
-      setShowConfirmModal(false);
-      setModuleToToggle(null);
-      loadModules();
-    } catch (error) {
-      console.error('Error toggling module status:', error);
-      alert('Failed to update module status. Please try again.');
+      if (response.success) {
+        console.log('Module deleted, reloading...');
+        showSuccessNotification(
+          'Module Deleted Successfully!',
+          `Module "${moduleToToggle.name}" has been deleted successfully.`
+        );
+        setShowConfirmModal(false);
+        setModuleToToggle(null);
+        // Reload current page
+        await loadModules(currentPage, searchTerm);
+        console.log('Reload completed');
+      } else {
+        showErrorNotification('Deletion Failed', response.message || 'Failed to delete module');
+      }
+    } catch (error: any) {
+      console.error('Error deleting module:', error);
+      showErrorNotification('Error', 'Failed to delete module. Please try again.');
     }
-  };
-
-  const cancelToggleActive = () => {
-    setShowConfirmModal(false);
-    setModuleToToggle(null);
   };
 
   const resetForm = () => {
@@ -365,8 +304,6 @@ export function ModuleManagement() {
     setSelectedFaculty('');
     setSelectedDepartment('');
     setSelectedProgram('');
-    setSelectedYear('');
-    setSelectedMonth('');
     setModuleCode('');
     setModuleName('');
     setModuleDescription('');
@@ -374,35 +311,64 @@ export function ModuleManagement() {
     setEditingModule(null);
   };
 
-  const resetFilters = () => {
-    setSearchTerm('');
-    setFilterFaculty('all');
-    setFilterDepartment('all');
-    setFilterProgram('all');
-    setFilterIntake('all');
-    setFilterStatus('all');
+  const openEditModal = (module: any) => {
+    setEditingModule(module);
+    setModuleCode(module.moduleCode);
+    setModuleName(module.moduleName);
+    setModuleDescription(module.description || '');
+    setCreditScore(module.creditScore);
+    setShowModal(true);
+    setStep(5); // Skip to module info step for editing
   };
 
+  // Step navigation
+  const handleNextStep = () => {
+    if (step === 1 && selectedFaculty) {
+      setStep(2);
+      loadDepartments(parseInt(selectedFaculty));
+    } else if (step === 2 && selectedDepartment) {
+      setStep(3);
+      loadPrograms(parseInt(selectedFaculty), parseInt(selectedDepartment));
+    } else if (step === 3 && selectedProgram) {
+      setStep(4);  // Go directly to module information (previously step 5)
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (editingModule) {
+      handleEditModule();
+    } else {
+      handleCreateModule();
+    }
+  };
+
+  // Page change handler
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setCurrentPage(newPage);
+      loadModules(newPage, searchTerm);
+    }
+  };
+
+  // Search handler
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCurrentPage(0);
+    loadModules(0, searchTerm);
+  };
+
+  // Filter modules based on status
   const filteredModules = modules.filter(module => {
-    const matchesSearch = 
-      module.module_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      module.module_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFaculty = filterFaculty === 'all' || 
-      filterDepartments.find(d => d.id === filterDepartment)?.faculty_id === filterFaculty;
-    
-    const matchesDepartment = filterDepartment === 'all' || 
-      filterPrograms.find(p => p.id === module.program_id)?.department_id === filterDepartment;
-    
-    const matchesProgram = filterProgram === 'all' || module.program_id === filterProgram;
-    
-    const matchesIntake = filterIntake === 'all' || module.intake_id === filterIntake;
-    
     const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'active' && module.is_active) ||
-      (filterStatus === 'inactive' && !module.is_active);
-    
-    return matchesSearch && matchesFaculty && matchesDepartment && matchesProgram && matchesIntake && matchesStatus;
+      (filterStatus === 'active' && module.isActive) ||
+      (filterStatus === 'inactive' && !module.isActive);
+    return matchesStatus;
   });
 
   return (
@@ -412,15 +378,16 @@ export function ModuleManagement() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <button
             onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-2 text-indigo-200 hover:text-white mb-4 transition-colors"
+            className="flex items-center gap-2 text-blue-200 hover:text-white mb-4 transition-colors"
           >
             <ArrowLeft size={20} />
             Back to Dashboard
           </button>
+          
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">Module Management</h1>
-              <p className="text-indigo-100 mt-1">Manage academic modules, programs, and intakes</p>
+              <p className="text-blue-200 mt-1">Create and manage academic modules</p>
             </div>
             <button
               onClick={() => setShowModal(true)}
@@ -434,172 +401,127 @@ export function ModuleManagement() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search and Filter */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="Search by module code or name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{modules.filter(m => m.isActive).length}</div>
+                <div className="text-gray-600">Active Modules</div>
               </div>
-              <select
-                value={filterFaculty}
-                onChange={(e) => {
-                  setFilterFaculty(e.target.value);
-                  setFilterDepartment('all');
-                  setFilterProgram('all');
-                  setFilterIntake('all');
-                }}
-                className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="all">All Faculties</option>
-                {filterFaculties.map(f => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-              <select
-                value={filterDepartment}
-                onChange={(e) => {
-                  setFilterDepartment(e.target.value);
-                  setFilterProgram('all');
-                  setFilterIntake('all');
-                }}
-                className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={filterFaculty === 'all'}
-              >
-                <option value="all">All Departments</option>
-                {filterDepartments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
+              <Book className="text-blue-500" size={40} />
             </div>
-            <div className="flex flex-col md:flex-row gap-4">
-              <select
-                value={filterProgram}
-                onChange={(e) => {
-                  setFilterProgram(e.target.value);
-                  setFilterIntake('all');
-                }}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={filterDepartment === 'all'}
-              >
-                <option value="all">All Programs</option>
-                {filterPrograms.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              <select
-                value={filterIntake}
-                onChange={(e) => setFilterIntake(e.target.value)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={filterProgram === 'all'}
-              >
-                <option value="all">All Intakes</option>
-                {filterIntakes.map(intake => {
-                  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                  const monthName = monthNames[intake.intake_month - 1];
-                  return (
-                    <option key={intake.id} value={intake.id}>
-                      {intake.intake_name} ({monthName} {intake.intake_year})
-                    </option>
-                  );
-                })}
-              </select>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              <button
-                onClick={resetFilters}
-                className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
-                title="Reset all filters"
-              >
-                <X size={20} />
-                Reset
-              </button>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-gray-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{modules.filter(m => !m.isActive).length}</div>
+                <div className="text-gray-600">Inactive Modules</div>
+              </div>
+              <Book className="text-gray-500" size={40} />
+            </div>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-emerald-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{totalElements}</div>
+                <div className="text-gray-600">Total Modules</div>
+              </div>
+              <Book className="text-emerald-500" size={40} />
             </div>
           </div>
         </div>
 
-        {/* Modules Grid */}
+        {/* Search and Filters */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Search by module name or code..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Modules</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
+            >
+              Search
+            </button>
+          </form>
+        </div>
+
+        {/* Modules List */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {loading ? (
             <div className="col-span-full text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-700"></div>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
               <p className="mt-4 text-gray-600">Loading modules...</p>
             </div>
           ) : filteredModules.length === 0 ? (
             <div className="col-span-full text-center py-12">
-              <Book className="mx-auto text-gray-400" size={48} />
-              <p className="mt-4 text-gray-600">No modules found. {modules.length > 0 ? 'Try adjusting your filters.' : 'Create your first module!'}</p>
+              <p className="text-gray-600">No modules found</p>
             </div>
           ) : (
             filteredModules.map((module) => (
-              <div
-                key={module.id}
-                className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow ${
-                  !module.is_active ? 'opacity-60' : ''
-                }`}
-              >
-                <div className={`h-2 ${module.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+              <div key={module.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                <div className={`h-2 ${module.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-900">{module.module_code}</h3>
-                      <p className="text-sm text-gray-500">{module.programs?.name}</p>
-                      {module.intakes && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Calendar size={12} className="text-purple-600" />
-                          <p className="text-xs text-purple-600 font-medium">
-                            {module.intakes.intake_name} - {module.intakes.intake_year}
-                          </p>
-                        </div>
-                      )}
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">{module.moduleCode}</h3>
+                      <p className="text-sm text-gray-500">{module.programName}</p>
                     </div>
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        module.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {module.is_active ? 'Active' : 'Inactive'}
+                    <span className={`px-2 py-1 text-xs rounded-full ${module.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                      {module.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-
-                  <h4 className="font-semibold text-gray-900 mb-2">{module.module_name}</h4>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">{module.description}</p>
-
-                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-                    <Book size={16} />
-                    <span>{module.credit_score} Credits</span>
+                  
+                  <h4 className="font-semibold text-gray-900 mb-2">{module.moduleName}</h4>
+                  
+                  {module.description && (
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{module.description}</p>
+                  )}
+                  
+                  <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                    <div className="flex items-center gap-1">
+                      <Calendar size={16} />
+                      <span>{module.creditScore} Credits</span>
+                    </div>
                   </div>
 
+                  <div className="text-xs text-gray-500 mb-4">
+                    <p><span className="font-medium">Faculty:</span> {module.facultyName}</p>
+                    <p><span className="font-medium">Department:</span> {module.departmentName}</p>
+                    <p><span className="font-medium">Program:</span> {module.programName}</p>
+                  </div>
+                  
                   <div className="flex items-center gap-2 pt-4 border-t">
-                    <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => openEditModal(module)}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
                       <Edit size={16} />
                       Edit
                     </button>
                     <button
-                      onClick={() => handleToggleActive(module.id, module.is_active, module.module_name)}
-                      className={`${
-                        module.is_active 
-                          ? 'bg-orange-100 hover:bg-orange-200 text-orange-600' 
-                          : 'bg-green-100 hover:bg-green-200 text-green-600'
-                      } p-2 rounded-lg transition-colors`}
-                      title={module.is_active ? 'Deactivate Module' : 'Activate Module'}
+                      onClick={() => confirmDeleteModule(module)}
+                      className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
                     >
-                      {module.is_active ? <XCircle size={18} /> : <CheckCircle size={18} />}
-                    </button>
-                    <button className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors">
                       <Trash2 size={18} />
                     </button>
                   </div>
@@ -609,348 +531,325 @@ export function ModuleManagement() {
           )}
         </div>
 
-        {/* Add/Edit Module Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                  {editingModule ? 'Edit Module' : 'Create New Module'}
-                </h2>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 mt-8">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 0}
+              className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Previous
+            </button>
+            <span className="flex items-center px-4 py-2 bg-gray-700 text-white rounded-lg">
+              Page {currentPage + 1} of {totalPages}
+            </span>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages - 1}
+              className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
 
-                {/* Step Indicator */}
-                <div className="flex items-center justify-between mb-8">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <div key={s} className="flex items-center">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                          step >= s
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-gray-200 text-gray-600'
-                        }`}
-                      >
-                        {s}
+      {/* Create/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+              <h3 className="text-2xl font-bold text-gray-800">
+                {editingModule ? 'Edit Module' : 'Create New Module'}
+              </h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {/* Step Indicator */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between">
+                  {[1, 2, 3, 4].map((stepNum) => (
+                    <div key={stepNum} className="flex items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                        step >= stepNum ? 'bg-emerald-600 text-white' : 'bg-gray-300 text-gray-600'
+                      }`}>
+                        {stepNum}
                       </div>
-                      {s < 5 && (
-                        <div
-                          className={`w-12 h-1 ${step > s ? 'bg-indigo-600' : 'bg-gray-200'}`}
-                        ></div>
+                      {stepNum < 4 && (
+                        <div className={`w-24 h-1 ml-2 ${step > stepNum ? 'bg-emerald-600' : 'bg-gray-300'}`}></div>
                       )}
                     </div>
                   ))}
                 </div>
+                <div className="flex justify-between mt-2 text-sm text-gray-600">
+                  <span>Faculty</span>
+                  <span>Department</span>
+                  <span>Program</span>
+                  <span>Module Info</span>
+                </div>
+              </div>
 
-                {/* Step 1: Faculty */}
-                {step === 1 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 1: Select Faculty</h3>
+              {/* Step Content */}
+              {step === 1 && (
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-800">Step 1: Select Faculty</h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Faculty *</label>
                     <select
                       value={selectedFaculty}
                       onChange={(e) => setSelectedFaculty(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
-                      <option value="">-- Select Faculty --</option>
+                      <option value="">Select Faculty</option>
                       {faculties.map((faculty) => (
-                        <option key={faculty.id} value={faculty.id}>
-                          {faculty.name}
-                        </option>
+                        <option key={faculty.id} value={faculty.id.toString()}>{faculty.name}</option>
                       ))}
                     </select>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Step 2: Department */}
-                {step === 2 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 2: Select Department</h3>
+              {step === 2 && (
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-800">Step 2: Select Department</h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Department *</label>
                     <select
                       value={selectedDepartment}
                       onChange={(e) => setSelectedDepartment(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
-                      <option value="">-- Select Department --</option>
+                      <option value="">Select Department</option>
                       {departments.map((dept) => (
-                        <option key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </option>
+                        <option key={dept.id} value={dept.id.toString()}>{dept.name}</option>
                       ))}
                     </select>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Step 3: Program */}
-                {step === 3 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 3: Select Program</h3>
-                    {programs.length === 0 ? (
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-                        <p className="text-amber-800 text-sm">
-                          <strong>Note:</strong> No programs found for the selected department. 
-                          Please ensure programs exist for this department, or go back and select a different department.
-                        </p>
-                      </div>
-                    ) : null}
+              {step === 3 && (
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-800">Step 3: Select Program</h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Program *</label>
                     <select
                       value={selectedProgram}
                       onChange={(e) => setSelectedProgram(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
-                      <option value="">-- Select Program --</option>
+                      <option value="">Select Program</option>
                       {programs.map((program) => (
-                        <option key={program.id} value={program.id}>
-                          {program.name} ({program.program_type})
-                        </option>
+                        <option key={program.id} value={program.id.toString()}>{program.name}</option>
                       ))}
                     </select>
                   </div>
-                )}
-
-                {/* Step 4: Intake */}
-                {step === 4 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 4: Create New Intake</h3>
-
-                    {/* Year Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Intake Year <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={selectedYear}
-                        onChange={(e) => setSelectedYear(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">-- Select Year --</option>
-                        {(() => {
-                          const currentYear = new Date().getFullYear();
-                          const startYear = currentYear - 3;
-                          const endYear = currentYear + 10;
-                          const years = [];
-                          for (let year = endYear; year >= startYear; year--) {
-                            years.push(year);
-                          }
-                          return years.map(year => (
-                            <option key={year} value={year}>{year}</option>
-                          ));
-                        })()}
-                      </select>
-                    </div>
-
-                    {/* Month Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Intake Month <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">-- Select Month --</option>
-                        <option value="1">January</option>
-                        <option value="2">February</option>
-                        <option value="3">March</option>
-                        <option value="4">April</option>
-                        <option value="5">May</option>
-                        <option value="6">June</option>
-                        <option value="7">July</option>
-                        <option value="8">August</option>
-                        <option value="9">September</option>
-                        <option value="10">October</option>
-                        <option value="11">November</option>
-                        <option value="12">December</option>
-                      </select>
-                    </div>
-
-                    {/* Intake Display (Read-only) */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Intake
-                      </label>
-                      <input
-                        type="text"
-                        value={selectedYear && selectedMonth ? `Intake ${selectedMonth}/${selectedYear}` : ''}
-                        readOnly
-                        placeholder="Select year and month first"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
-                      />
-                      {selectedYear && selectedMonth && (
-                        <p className="text-sm text-green-600 mt-2">
-                          ✓ A new intake will be created for {(() => {
-                            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                            return monthNames[parseInt(selectedMonth) - 1];
-                          })()} {selectedYear}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Step 5: Module Details */}
-                {step === 5 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Step 5: Module Details</h3>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Module Code <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={moduleCode}
-                        onChange={(e) => setModuleCode(e.target.value)}
-                        placeholder="e.g., CS101"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Module Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={moduleName}
-                        onChange={(e) => setModuleName(e.target.value)}
-                        placeholder="e.g., Introduction to Programming"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={moduleDescription}
-                        onChange={(e) => setModuleDescription(e.target.value)}
-                        placeholder="Module description..."
-                        rows={4}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Credit Score
-                      </label>
-                      <input
-                        type="number"
-                        value={creditScore}
-                        onChange={(e) => setCreditScore(parseInt(e.target.value))}
-                        min="1"
-                        max="10"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Modal Actions */}
-                <div className="flex gap-3 mt-8">
-                  {step > 1 && (
-                    <button
-                      onClick={() => setStep(step - 1)}
-                      className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Previous
-                    </button>
-                  )}
-                  <button
-                    onClick={resetForm}
-                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  {step < 5 ? (
-                    <button
-                      onClick={() => setStep(step + 1)}
-                      disabled={
-                        (step === 1 && !selectedFaculty) ||
-                        (step === 2 && !selectedDepartment) ||
-                        (step === 3 && !selectedProgram) ||
-                        (step === 4 && (!selectedYear || !selectedMonth))
-                      }
-                      className="flex-1 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleCreateModule}
-                      className="flex-1 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Create Module
-                    </button>
-                  )}
                 </div>
-              </div>
+              )}
+
+              {step === 4 && (
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-800">Step 4: Module Information</h4>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Module Code *</label>
+                    <input
+                      type="text"
+                      value={moduleCode}
+                      onChange={(e) => {
+                        // Remove spaces and convert to uppercase, allow only A-Z, 0-9, underscore, hyphen
+                        const sanitized = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+                        setModuleCode(sanitized);
+                      }}
+                      placeholder="e.g., CS101"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Only uppercase letters, numbers, underscore, and hyphen (no spaces)</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Module Name *</label>
+                    <input
+                      type="text"
+                      value={moduleName}
+                      onChange={(e) => setModuleName(e.target.value)}
+                      placeholder="e.g., Introduction to Computer Science"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea
+                      value={moduleDescription}
+                      onChange={(e) => setModuleDescription(e.target.value)}
+                      rows={4}
+                      placeholder="Module description..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Credit Score *</label>
+                    <select
+                      value={creditScore}
+                      onChange={(e) => setCreditScore(parseInt(e.target.value))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(score => (
+                        <option key={score} value={score}>{score} Credit{score !== 1 ? 's' : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
 
-        {/* Confirmation Modal for Active/Inactive Toggle */}
-        {showConfirmModal && moduleToToggle && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-              <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-full ${
-                  moduleToToggle.currentStatus 
-                    ? 'bg-orange-100' 
-                    : 'bg-green-100'
-                }`}>
-                  {moduleToToggle.currentStatus ? (
-                    <AlertTriangle className="text-orange-600" size={24} />
-                  ) : (
-                    <CheckCircle className="text-green-600" size={24} />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    {moduleToToggle.currentStatus ? 'Deactivate Module?' : 'Activate Module?'}
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    {moduleToToggle.currentStatus ? (
-                      <>
-                        Are you sure you want to <span className="font-semibold">deactivate</span> the module{' '}
-                        <span className="font-semibold text-gray-900">"{moduleToToggle.name}"</span>?
-                        <br /><br />
-                        <span className="text-sm text-orange-600">
-                          ⚠️ This module will no longer be available for student enrollment and will be hidden from active module lists.
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        Are you sure you want to <span className="font-semibold">activate</span> the module{' '}
-                        <span className="font-semibold text-gray-900">"{moduleToToggle.name}"</span>?
-                        <br /><br />
-                        <span className="text-sm text-green-600">
-                          ✓ This module will become available for student enrollment and will appear in active module lists.
-                        </span>
-                      </>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
+            <div className="bg-gray-50 p-6 flex justify-between gap-3 border-t border-gray-200">
+              <button
+                onClick={handlePreviousStep}
+                disabled={step === 1}
+                className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                Previous
+              </button>
+              
+              <div className="flex gap-3">
                 <button
-                  onClick={cancelToggleActive}
-                  className="flex-1 px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  onClick={() => setShowModal(false)}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
+                
+                {step < 4 ? (
+                  <button
+                    onClick={handleNextStep}
+                    disabled={
+                      (step === 1 && !selectedFaculty) ||
+                      (step === 2 && !selectedDepartment) ||
+                      (step === 3 && !selectedProgram)
+                    }
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors"
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!moduleCode || !moduleName}
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors"
+                  >
+                    {editingModule ? 'Update Module' : 'Create Module'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Modal */}
+      {showConfirmModal && moduleToToggle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4 mx-auto">
+                <AlertTriangle className="text-red-600" size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Delete Module</h3>
+              <p className="text-gray-600 text-center mb-6">
+                Are you sure you want to delete "<span className="font-semibold text-gray-800">{moduleToToggle.name}</span>"?
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="bg-gray-50 p-6 flex justify-end gap-3 border-t border-gray-200">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteModule}
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                Delete Module
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success/Error/Warning Notification Modal */}
+      {showNotification && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className={`flex items-center justify-center mx-auto w-12 h-12 rounded-full mb-4 ${
+                notificationConfig.type === 'success' ? 'bg-green-100' :
+                notificationConfig.type === 'error' ? 'bg-red-100' :
+                'bg-yellow-100'
+              }`}>
+                {notificationConfig.type === 'success' && (
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                )}
+                {notificationConfig.type === 'error' && (
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                )}
+                {notificationConfig.type === 'warning' && (
+                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                  </svg>
+                )}
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 text-center mb-2">
+                {notificationConfig.title}
+              </h3>
+              <p className="text-sm text-gray-500 text-center mb-4">
+                {notificationConfig.message}
+              </p>
+              {notificationConfig.details && notificationConfig.details.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                  <ul className="text-sm text-gray-700 space-y-1">
+                    {notificationConfig.details.map((detail: string, index: number) => (
+                      <li key={index} className="flex items-center">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2"></span>
+                        {detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex justify-center">
                 <button
-                  onClick={confirmToggleActive}
-                  className={`flex-1 px-6 py-2.5 text-white rounded-lg transition-colors font-medium ${
-                    moduleToToggle.currentStatus
-                      ? 'bg-orange-600 hover:bg-orange-700'
-                      : 'bg-green-600 hover:bg-green-700'
+                  onClick={() => setShowNotification(false)}
+                  className={`px-6 py-2 rounded-lg transition-colors text-white ${
+                    notificationConfig.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
+                    notificationConfig.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
+                    'bg-yellow-600 hover:bg-yellow-700'
                   }`}
                 >
-                  {moduleToToggle.currentStatus ? 'Deactivate' : 'Activate'}
+                  OK
                 </button>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export { ModuleManagement };
