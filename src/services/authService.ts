@@ -44,17 +44,41 @@ export class AuthService extends ApiService {
             };
 
             // Send plain request (no encryption)
+            // Include Accept-Encoding header to request uncompressed response
             const response = await fetch(`${this.baseUrl}${this.AUTH_ENDPOINTS.LOGIN}`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept-Encoding': 'identity' // Request uncompressed response
                 },
+                credentials: 'include', // Include cookies for CORS
                 body: JSON.stringify(loginData)
             });
 
-            const result = await response.json();
-            
             console.log('Backend response status:', response.status);
+            console.log('Backend response headers:', Object.fromEntries(response.headers.entries()));
+
+            // Check if response is ok before parsing
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('HTTP error response:', errorText);
+                throw new Error(`Login failed with status ${response.status}`);
+            }
+
+            // Get response as text first to handle potential gzip issues in Chrome
+            const responseText = await response.text();
+            console.log('Response text length:', responseText.length);
+            
+            // Parse JSON
+            let result;
+            try {
+                result = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError);
+                console.error('Response text:', responseText.substring(0, 200));
+                throw new Error('Failed to parse server response. Please try again.');
+            }
+            
             console.log('Backend response data:', result);
 
             // Check for PASSWORD_CHANGE_REQUIRED (016)

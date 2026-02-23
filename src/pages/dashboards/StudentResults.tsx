@@ -103,7 +103,7 @@ export function StudentResults() {
 
   const getGradeColor = (grade: string) => {
     if (grade.startsWith('A')) return 'bg-green-100 text-green-800 border-green-300';
-    if (grade.startsWith('B')) return 'bg-blue-100 text-blue-800 border-blue-300';
+    if (grade.startsWith('B')) return 'bg-emerald-100 text-emerald-800 border-emerald-300';
     if (grade.startsWith('C')) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
     if (grade.startsWith('D')) return 'bg-orange-100 text-orange-800 border-orange-300';
     return 'bg-red-100 text-red-800 border-red-300';
@@ -228,9 +228,9 @@ export function StudentResults() {
               return (
                 <div key={deptName} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                   {/* Department Header */}
-                  <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 p-4 text-white">
+                  <div className="bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 p-4 text-white">
                     <h2 className="text-lg font-bold">{deptName}</h2>
-                    <p className="text-indigo-100 text-sm">{deptData.facultyName}</p>
+                    <p className="text-emerald-100 text-sm">{deptData.facultyName}</p>
                   </div>
 
                   {/* Programs */}
@@ -275,7 +275,7 @@ export function StudentResults() {
                                     <td className="px-4 py-4 text-sm font-medium text-gray-900">{result.moduleCode}</td>
                                     <td className="px-4 py-4 text-sm text-gray-900">{result.moduleName}</td>
                                     <td className="px-4 py-4 text-sm text-center">
-                                      <span className="inline-flex items-center justify-center bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold">
+                                      <span className="inline-flex items-center justify-center bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full font-semibold">
                                         {result.creditScore}
                                       </span>
                                     </td>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, CheckCircle, XCircle, DollarSign, Calendar, FileText, Eye, AlertCircle, X } from 'lucide-react';
 import * as adminService from '../../services/adminService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Payment {
   id: number;
@@ -60,6 +61,7 @@ const convertArrayToDate = (dateArray: number[]): string => {
 
 export function VerifyPayments() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -238,11 +240,14 @@ export function VerifyPayments() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          approved: true
+          paymentId: payment.id,
+          status: 'approved'
         })
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Verification failed:', errorText);
         throw new Error('Failed to verify payment');
       }
 
@@ -274,12 +279,15 @@ export function VerifyPayments() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          approved: false,
+          paymentId: selectedPayment.id,
+          status: 'rejected',
           rejectionReason: rejectionReason
         })
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Rejection failed:', errorText);
         throw new Error('Failed to reject payment');
       }
 

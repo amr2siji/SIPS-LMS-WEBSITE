@@ -6,6 +6,7 @@ import { ArrowLeft, Calendar, Clock, MapPin, BookOpen, AlertCircle } from 'lucid
 interface ExamSchedule {
   id: string;
   examDate: string;
+  examTime: string;
   startTime: string;
   endTime: string;
   location: string;
@@ -60,6 +61,7 @@ export function StudentExamSchedule() {
       const formattedExams: ExamSchedule[] = examsData.map((exam: any) => ({
         id: exam.id,
         examDate: exam.examDate,
+        examTime: exam.examTime,
         startTime: exam.startTime,
         endTime: exam.endTime,
         location: exam.location || 'TBA',
@@ -98,7 +100,7 @@ export function StudentExamSchedule() {
   const getExamTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case 'midterm':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
       case 'final':
         return 'bg-red-100 text-red-800 border-red-300';
       case 'quiz':
@@ -196,9 +198,9 @@ export function StudentExamSchedule() {
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600 mb-1">Total Exams</p>
                 <h3 className="text-3xl font-bold text-gray-900 mb-2">{examSchedules.length}</h3>
-                <p className="text-sm text-blue-600 font-medium">Scheduled</p>
+                <p className="text-sm text-emerald-600 font-medium">Scheduled</p>
               </div>
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-xl">
+              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 rounded-xl">
                 <Calendar className="text-white" size={24} />
               </div>
             </div>
@@ -295,16 +297,16 @@ export function StudentExamSchedule() {
                 return (
                   <div key={date} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     {/* Date Header */}
-                    <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 p-4 text-white">
+                    <div className="bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 p-4 text-white">
                       <div className="flex items-center justify-between">
                         <div>
                           <h3 className="text-lg font-bold">{dayName}</h3>
-                          <p className="text-indigo-100 text-sm">{formattedDate}</p>
+                          <p className="text-emerald-100 text-sm">{formattedDate}</p>
                         </div>
                         {daysUntil >= 0 && (
                           <div className="text-right">
                             <div className="text-2xl font-bold">{daysUntil}</div>
-                            <div className="text-xs text-indigo-100">
+                            <div className="text-xs text-emerald-100">
                               {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Day' : 'Days'}
                             </div>
                           </div>
@@ -324,7 +326,7 @@ export function StudentExamSchedule() {
                             <div className="flex items-start justify-between mb-4">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <BookOpen className="text-indigo-600" size={20} />
+                                  <BookOpen className="text-emerald-600" size={20} />
                                   <h4 className="text-lg font-bold text-gray-900">{exam.moduleName}</h4>
                                   <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${getExamTypeColor(exam.examType)}`}>
                                     {exam.examType}
@@ -335,7 +337,7 @@ export function StudentExamSchedule() {
                                   {exam.maxMarks && (
                                     <>
                                       <span>•</span>
-                                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
+                                      <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full text-xs font-semibold">
                                         {exam.maxMarks} Marks
                                       </span>
                                     </>
@@ -350,7 +352,11 @@ export function StudentExamSchedule() {
                                 <div>
                                   <div className="text-xs text-gray-600 font-medium">Time</div>
                                   <div className="text-sm font-bold text-gray-900">
-                                    {formatTime(exam.startTime)} - {formatTime(exam.endTime)}
+                                    {exam.startTime && exam.endTime
+                                      ? `${formatTime(exam.startTime)} - ${formatTime(exam.endTime)}`
+                                      : exam.examTime
+                                        ? formatTime(exam.examTime)
+                                        : 'TBA'}
                                   </div>
                                 </div>
                               </div>

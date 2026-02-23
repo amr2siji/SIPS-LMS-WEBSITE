@@ -447,6 +447,52 @@ class StudentApplicationService {
       };
     }
   }
+
+  /**
+   * Export applications to Excel within a date range
+   * Downloads the file directly in the browser
+   */
+  async exportApplicationsToExcel(params: {
+    startDate: string; // yyyy-MM-dd
+    endDate: string;   // yyyy-MM-dd
+    status?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    try {
+      const searchParams = new URLSearchParams();
+      searchParams.append('startDate', params.startDate);
+      searchParams.append('endDate', params.endDate);
+      if (params.status) searchParams.append('status', params.status.toUpperCase());
+
+      const url = `${ADMIN_API_URL}/applications/export/excel?${searchParams.toString()}`;
+      console.log('📊 Exporting applications to Excel:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+        mode: 'cors'
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return { success: false, message: `Export failed: ${response.status} ${errorText}` };
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `applications_${params.startDate}_to_${params.endDate}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      return { success: true, message: 'Excel report downloaded successfully' };
+    } catch (error: any) {
+      console.error('Failed to export applications:', error);
+      return { success: false, message: error.message || 'Failed to export applications' };
+    }
+  }
 }
 
 export const studentApplicationService = new StudentApplicationService();

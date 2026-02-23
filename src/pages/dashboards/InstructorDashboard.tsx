@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { BookOpen, FileText, Users, CheckCircle, LogOut, GraduationCap, ClipboardCheck, Bell, User, ChevronDown } from 'lucide-react';
+import { BookOpen, FileText, Users, CheckCircle, LogOut, GraduationCap, ClipboardCheck, User, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { NotificationBell } from '../../components/NotificationBell';
 
 export function InstructorDashboard() {
   const { user, signOut } = useAuth();
@@ -93,15 +94,7 @@ export function InstructorDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                className="relative flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-4 py-2.5 rounded-lg transition-all font-medium border border-white/20"
-                title="Notifications"
-              >
-                <Bell size={18} />
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                  3
-                </span>
-              </button>
+              <NotificationBell />
               
               {/* Profile Dropdown */}
               <div className="relative">
@@ -124,7 +117,7 @@ export function InstructorDashboard() {
                     <button
                       onClick={() => {
                         setIsProfileMenuOpen(false);
-                        navigate('/instructor/profile');
+                        navigate('/lecturer/profile');
                       }}
                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                     >
@@ -134,7 +127,7 @@ export function InstructorDashboard() {
                     <button
                       onClick={() => {
                         setIsProfileMenuOpen(false);
-                        navigate('/instructor/settings');
+                        navigate('/lecturer/settings');
                       }}
                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                     >

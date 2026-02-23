@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { BookOpen, Clock, Award, Search, Users } from 'lucide-react';
 import { SEO } from '../components/SEO';
 
@@ -21,9 +21,15 @@ interface Program {
 
 export function Programmes() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<'sips' | 'ibm' | 'certiport'>('ibm');
-  const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  
+  // Check if there's a state with activeTab from navigation
+  useEffect(() => {
+    if (location.state && location.state.activeTab) {
+      setActiveTab(location.state.activeTab);
+    }
+  }, [location.state]);
   
   const sipsPrograms: Program[] = [
     {
@@ -317,162 +323,208 @@ export function Programmes() {
       logoUrl: "/cources/IC3 course.jpeg",
       detailedDescription: `<div class="space-y-6">
         <div class="flex justify-center mb-6">
-          <img src="/cources/IC3 course.jpeg" alt="IC3 Digital Literacy" class="w-full max-w-3xl h-auto rounded-lg shadow-lg" />
+          <img src="/cources/IC3 course.jpeg" alt="IC3 Digital Literacy" class="w-full max-w-3xl h-auto rounded-lg shadow-lg border border-gray-200" />
         </div>
         
-        <div>
-          <h3 class="text-3xl font-bold text-gray-900 mb-4">What is IC3 DIGITAL LITERACY?</h3>
-          <p class="text-gray-700 mb-4 text-lg leading-relaxed">IC3 Digital Literacy Certification is a stackable credential that validates each learner's level of proficiency, whether beginner, intermediate, or advanced. It measures against seven major domains that are essential to success. It aligns to multiple international standards to ensure it is the most comprehensive solution available.</p>
-          <p class="text-gray-700 mb-6 text-lg leading-relaxed">The newest version, <strong>Global Standard Six</strong>, focuses on competency; allowing students to enter at the appropriate skill level and exit with mastery.</p>
+        <!-- What is IC3 Section -->
+        <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
+          <h3 class="text-xl font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">
+            What is IC3 Digital Literacy?
+          </h3>
+          <div class="space-y-3">
+            <p class="text-gray-700 text-sm leading-relaxed">
+              <strong class="text-emerald-600">IC3 Digital Literacy Certification</strong> is a stackable credential that validates each learner's level of proficiency, whether <span class="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">beginner</span>, <span class="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">intermediate</span>, or <span class="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">advanced</span>.
+            </p>
+            <p class="text-gray-700 text-sm leading-relaxed">
+              It measures against <span class="font-semibold text-gray-900">seven major domains</span> that are essential to success and aligns to multiple international standards to ensure it is the most comprehensive solution available.
+            </p>
+            <div class="bg-emerald-50 border-l-4 border-emerald-600 p-4 rounded mt-4">
+              <p class="text-gray-700 text-sm">
+                The newest version, <strong class="text-emerald-700">Global Standard Six</strong>, focuses on competency; allowing students to enter at the appropriate skill level and exit with mastery.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div class="bg-gray-50 p-6 rounded-lg">
-          <h4 class="text-2xl font-semibold text-gray-900 mb-4">Digital Literacy Domains</h4>
-          <div class="overflow-x-auto">
-            <table class="min-w-full bg-white border border-gray-300 rounded-lg">
-              <thead class="bg-green-600 text-white">
+        <!-- Digital Literacy Domains Table -->
+        <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
+          <h4 class="text-lg font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">
+            Digital Literacy Domains & Skill Levels
+          </h4>
+          
+          <!-- Level Legend -->
+          <div class="flex flex-wrap gap-3 mb-4 p-3 bg-gray-50 rounded border border-gray-200">
+            <div class="flex items-center">
+              <span class="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-semibold mr-2">Level 1</span>
+              <span class="text-gray-600 text-xs">Beginner</span>
+            </div>
+            <div class="flex items-center">
+              <span class="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-semibold mr-2">Level 2</span>
+              <span class="text-gray-600 text-xs">Intermediate</span>
+            </div>
+            <div class="flex items-center">
+              <span class="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-semibold mr-2">Level 3</span>
+              <span class="text-gray-600 text-xs">Advanced</span>
+            </div>
+          </div>
+          
+          <div class="overflow-x-auto rounded border border-gray-200">
+            <table class="w-full bg-white">
+              <thead class="bg-emerald-600 text-white">
                 <tr>
-                  <th class="px-4 py-3 text-left font-semibold border-b">OBJECTIVE DOMAIN</th>
-                  <th class="px-4 py-3 text-left font-semibold border-b">SUBDOMAIN</th>
-                  <th class="px-4 py-3 text-center font-semibold border-b">LEVEL 1</th>
-                  <th class="px-4 py-3 text-center font-semibold border-b">LEVEL 2</th>
-                  <th class="px-4 py-3 text-center font-semibold border-b">LEVEL 3</th>
+                  <th class="px-4 py-3 text-left font-semibold text-sm">Domain</th>
+                  <th class="px-4 py-3 text-left font-semibold text-sm">Competency</th>
+                  <th class="px-3 py-3 text-center font-semibold text-sm w-20">L1</th>
+                  <th class="px-3 py-3 text-center font-semibold text-sm w-20">L2</th>
+                  <th class="px-3 py-3 text-center font-semibold text-sm w-20">L3</th>
                 </tr>
               </thead>
-              <tbody class="text-gray-700">
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium" rowspan="3">Technology Basics</td>
+              <tbody class="text-gray-700 text-sm">
+                <!-- Technology Basics -->
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                  <td class="px-4 py-3 font-semibold text-gray-900 bg-gray-50" rowspan="3">Technology Basics</td>
                   <td class="px-4 py-3">Explain fundamental software concepts</td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Customize digital environments</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Identify, troubleshoot, and resolve technical problems with assistance</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium" rowspan="2">Digital Citizenship</td>
+                
+                <!-- Digital Citizenship -->
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                  <td class="px-4 py-3 font-semibold text-gray-900 bg-gray-50" rowspan="3">Digital Citizenship</td>
                   <td class="px-4 py-3">Cultivate, manage, and protect your digital reputation</td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Apply digital etiquette standards</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium">Information Management</td>
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Explain best practices for digital citizenship</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium" rowspan="3">Information Management</td>
+                
+                <!-- Information Management -->
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                  <td class="px-4 py-3 font-semibold text-gray-900 bg-gray-50" rowspan="3">Information Management</td>
                   <td class="px-4 py-3">Use and refine criteria for online searches</td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Manage online data collection, storage, and retrieval</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Evaluate digital information sources and multiple search results</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium" rowspan="3">Content Creation</td>
+                
+                <!-- Content Creation -->
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                  <td class="px-4 py-3 font-semibold text-gray-900 bg-gray-50" rowspan="3">Content Creation</td>
                   <td class="px-4 py-3">Create basic digital content</td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Responsibly repurpose digital resources</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Create, edit, and publish or present original digital media content for a specific audience</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium" rowspan="3">Communication</td>
+                
+                <!-- Communication -->
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                  <td class="px-4 py-3 font-semibold text-gray-900 bg-gray-50" rowspan="3">Communication</td>
                   <td class="px-4 py-3">Express yourself through digital means</td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Interact with others in a digital environment</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Customize the message and medium for a specific audience</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium" rowspan="3">Collaboration</td>
+                
+                <!-- Collaboration -->
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                  <td class="px-4 py-3 font-semibold text-gray-900 bg-gray-50" rowspan="3">Collaboration</td>
                   <td class="px-4 py-3">Identify digital etiquette standards for collaborative processes</td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Use digital tools and technologies to collaborate on the creation of content</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Use collaboration tools to work with others to examine issues and problems from multiple viewpoints</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium" rowspan="3">Safety and Security</td>
+                
+                <!-- Safety and Security -->
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                  <td class="px-4 py-3 font-semibold text-gray-900 bg-gray-50" rowspan="3">Safety and Security</td>
                   <td class="px-4 py-3">Identify threats and security measures in a digital environment</td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                   <td class="px-4 py-3">Avoid mental health threats while using digital technologies (Catfishing, FOMO, etc.)</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
-                  <td class="px-4 py-3 text-center"></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
                 </tr>
                 <tr class="hover:bg-gray-50">
                   <td class="px-4 py-3">Manage device security (encryption, biometric passwords, viruses)</td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center"></td>
-                  <td class="px-4 py-3 text-center">✓</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center text-gray-300">—</td>
+                  <td class="px-3 py-3 text-center"><span class="inline-flex items-center justify-center bg-emerald-600 text-white rounded w-6 h-6 text-xs font-bold">✓</span></td>
                 </tr>
               </tbody>
             </table>
@@ -513,50 +565,114 @@ export function Programmes() {
       logoUrl: "/cources/Microsoft Office Specializations.jpeg",
       detailedDescription: `<div class="space-y-6">
         <div class="flex justify-center mb-6">
-          <img src="/cources/Microsoft Office Specializations.jpeg" alt="Microsoft Office Specialist" class="w-full max-w-3xl h-auto rounded-lg shadow-lg" />
+          <img src="/cources/Microsoft Office Specializations.jpeg" alt="Microsoft Office Specialist" class="w-full max-w-3xl h-auto rounded-lg shadow-lg border border-gray-200" />
         </div>
         
-        <div>
-          <h3 class="text-3xl font-bold text-gray-900 mb-4">About Microsoft Office Specialist (MOS)</h3>
-          <p class="text-gray-700 mb-4 text-lg leading-relaxed">Microsoft Office Specialist (MOS) is the only endorsed certification by Microsoft that validates skills in Microsoft Office applications, including Word, Excel®, PowerPoint®, and Outlook®. Certifications are available for Microsoft Office 365 Apps, Microsoft Office 2019, and Microsoft Office 2016.</p>
-          <p class="text-gray-700 mb-6 text-lg leading-relaxed">Candidates who take and pass MOS certification are empowered to stand out in the competitive job market, while simplifying daily tasks and fostering career growth.</p>
+        <!-- About Section -->
+        <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
+          <h3 class="text-xl font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">
+            About Microsoft Office Specialist (MOS)
+          </h3>
+          <div class="space-y-3">
+            <p class="text-gray-700 text-sm leading-relaxed">
+              <strong class="text-[#D04423]">Microsoft Office Specialist (MOS)</strong> is the only endorsed certification by Microsoft that validates skills in Microsoft Office applications, including Word, Excel, PowerPoint, and Outlook.
+            </p>
+            <p class="text-gray-700 text-sm leading-relaxed">
+              Certifications are available for <span class="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">Microsoft Office 365 Apps</span>, <span class="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">Microsoft Office 2019</span>, and <span class="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">Microsoft Office 2016</span>.
+            </p>
+            <div class="bg-emerald-50 border-l-4 border-emerald-600 p-4 rounded mt-4">
+              <p class="text-gray-700 text-sm">
+                Candidates who take and pass MOS certification are empowered to stand out in the competitive job market, while simplifying daily tasks and fostering career growth.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div class="bg-gradient-to-r from-blue-50 to-green-50 p-6 rounded-lg">
-          <h4 class="text-2xl font-semibold text-gray-900 mb-4">Content Covered</h4>
+        <!-- Certification Levels Section -->
+        <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
+          <h4 class="text-lg font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">
+            Certification Levels
+          </h4>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-white p-4 rounded-lg shadow">
-              <h5 class="font-bold text-blue-600 mb-2">Associate Level</h5>
-              <ul class="space-y-2 text-gray-700">
-                <li class="flex items-center"><span class="text-green-500 mr-2">✓</span> Word Associate</li>
-                <li class="flex items-center"><span class="text-green-500 mr-2">✓</span> Excel Associate</li>
-                <li class="flex items-center"><span class="text-green-500 mr-2">✓</span> PowerPoint Associate</li>
-                <li class="flex items-center"><span class="text-green-500 mr-2">✓</span> Outlook Associate</li>
+            <!-- Associate Level Card -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h5 class="text-base font-semibold text-gray-900 mb-2">Associate Level</h5>
+              <p class="text-gray-600 text-xs mb-3 italic">Foundational skills for everyday Office tasks</p>
+              <ul class="space-y-2">
+                <li class="flex items-center">
+                  <span class="bg-emerald-600 text-white rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold">✓</span>
+                  <span class="text-gray-700 text-sm">Word Associate</span>
+                </li>
+                <li class="flex items-center">
+                  <span class="bg-emerald-600 text-white rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold">✓</span>
+                  <span class="text-gray-700 text-sm">Excel Associate</span>
+                </li>
+                <li class="flex items-center">
+                  <span class="bg-emerald-600 text-white rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold">✓</span>
+                  <span class="text-gray-700 text-sm">PowerPoint Associate</span>
+                </li>
+                <li class="flex items-center">
+                  <span class="bg-emerald-600 text-white rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold">✓</span>
+                  <span class="text-gray-700 text-sm">Outlook Associate</span>
+                </li>
               </ul>
             </div>
-            <div class="bg-white p-4 rounded-lg shadow">
-              <h5 class="font-bold text-purple-600 mb-2">Expert Level</h5>
-              <ul class="space-y-2 text-gray-700">
-                <li class="flex items-center"><span class="text-green-500 mr-2">✓</span> Word Expert</li>
-                <li class="flex items-center"><span class="text-green-500 mr-2">✓</span> Excel Expert</li>
-                <li class="flex items-center"><span class="text-green-500 mr-2">✓</span> Access Expert</li>
+            
+            <!-- Expert Level Card -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h5 class="text-base font-semibold text-gray-900 mb-2">Expert Level</h5>
+              <p class="text-gray-600 text-xs mb-3 italic">Advanced skills for complex professional tasks</p>
+              <ul class="space-y-2">
+                <li class="flex items-center">
+                  <span class="bg-[#D04423] text-white rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold">★</span>
+                  <span class="text-gray-700 text-sm">Word Expert</span>
+                </li>
+                <li class="flex items-center">
+                  <span class="bg-[#D04423] text-white rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold">★</span>
+                  <span class="text-gray-700 text-sm">Excel Expert</span>
+                </li>
+                <li class="flex items-center">
+                  <span class="bg-[#D04423] text-white rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold">★</span>
+                  <span class="text-gray-700 text-sm">Access Expert</span>
+                </li>
               </ul>
             </div>
           </div>
         </div>
 
-        <div>
-          <h4 class="text-2xl font-semibold text-gray-900 mb-4">Learn, Practice, Certify, and Advance</h4>
-          <p class="text-gray-700 mb-4 text-lg leading-relaxed">Certiport provides a full pathway for MOS certification success, including leading courseware, learning products, and state-of-the-art practice tests. Regardless of industry, it provides resources for educators and employers to increase Microsoft Office skills and empowers individuals to take and pass MOS certification.</p>
+        <!-- Learning Path Section -->
+        <div class="bg-[#D04423] p-6 rounded-lg shadow text-white">
+          <h4 class="text-lg font-bold mb-3 border-b border-orange-400 pb-3">
+            Your Path to Certification Success
+          </h4>
+          <p class="text-white text-sm leading-relaxed mb-4 opacity-95">
+            Certiport provides a full pathway for MOS certification success, including leading courseware, learning products, and state-of-the-art practice tests. Regardless of industry, it provides resources for educators and employers to increase Microsoft Office skills and empowers individuals to take and pass MOS certification.
+          </p>
           
-          <div class="bg-blue-50 p-6 rounded-lg mt-4">
-            <h5 class="text-xl font-semibold text-gray-900 mb-3">Why Choose MOS?</h5>
-            <ul class="space-y-2 text-gray-700">
-              <li class="flex items-start"><span class="text-blue-600 mr-2 mt-1">●</span><span>The only Microsoft-endorsed certification for Office applications</span></li>
-              <li class="flex items-start"><span class="text-blue-600 mr-2 mt-1">●</span><span>Recognized globally by employers across all industries</span></li>
-              <li class="flex items-start"><span class="text-blue-600 mr-2 mt-1">●</span><span>Demonstrates proficiency in real-world Office tasks</span></li>
-              <li class="flex items-start"><span class="text-blue-600 mr-2 mt-1">●</span><span>Enhances resume and career opportunities</span></li>
-              <li class="flex items-start"><span class="text-blue-600 mr-2 mt-1">●</span><span>Available for Office 365, Office 2019, and Office 2016</span></li>
+          <!-- Why Choose MOS -->
+          <div class="bg-white bg-opacity-10 p-4 rounded border border-white border-opacity-20">
+            <h5 class="text-base font-bold text-white mb-3">Why Choose MOS?</h5>
+            <ul class="space-y-2">
+              <li class="flex items-start">
+                <span class="bg-white text-[#D04423] rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold flex-shrink-0 mt-0.5">✓</span>
+                <span class="text-white text-sm">The only Microsoft-endorsed certification for Office applications</span>
+              </li>
+              <li class="flex items-start">
+                <span class="bg-white text-[#D04423] rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold flex-shrink-0 mt-0.5">✓</span>
+                <span class="text-white text-sm">Recognized globally by employers across all industries</span>
+              </li>
+              <li class="flex items-start">
+                <span class="bg-white text-[#D04423] rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold flex-shrink-0 mt-0.5">✓</span>
+                <span class="text-white text-sm">Demonstrates proficiency in real-world Office tasks</span>
+              </li>
+              <li class="flex items-start">
+                <span class="bg-white text-[#D04423] rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold flex-shrink-0 mt-0.5">✓</span>
+                <span class="text-white text-sm">Enhances resume and career opportunities</span>
+              </li>
+              <li class="flex items-start">
+                <span class="bg-white text-[#D04423] rounded w-5 h-5 flex items-center justify-center mr-2 text-xs font-bold flex-shrink-0 mt-0.5">✓</span>
+                <span class="text-white text-sm">Available for Office 365, Office 2019, and Office 2016</span>
+              </li>
             </ul>
           </div>
         </div>
@@ -594,65 +710,107 @@ export function Programmes() {
       logoUrl: "/cources/ESB.jpeg",
       detailedDescription: `<div class="space-y-6">
         <div class="flex justify-center mb-6">
-          <img src="/cources/ESB.jpeg" alt="Entrepreneurship and Small Business" class="w-full max-w-3xl h-auto rounded-lg shadow-lg" />
+          <img src="/cources/ESB.jpeg" alt="Entrepreneurship and Small Business" class="w-full max-w-3xl h-auto rounded-lg shadow-lg border border-gray-200" />
         </div>
         
-        <div>
-          <h3 class="text-3xl font-bold text-gray-900 mb-4">Objectives of the Entrepreneurship and Small Business Certification</h3>
-          <p class="text-gray-700 mb-6 text-lg leading-relaxed">The ESB certification is built to test and validate foundational concepts and knowledge in entrepreneurship and small business management. These core concepts include: Entrepreneurial and small business concepts, marketing and sales, production and distribution, and business financials.</p>
+        <!-- Objectives Section -->
+        <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
+          <h3 class="text-xl font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">
+            Objectives of the ESB Certification
+          </h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            The <strong class="text-emerald-600">ESB certification</strong> is built to test and validate foundational concepts and knowledge in entrepreneurship and small business management. These core concepts include: <span class="font-semibold">Entrepreneurial and small business concepts</span>, <span class="font-semibold">marketing and sales</span>, <span class="font-semibold">production and distribution</span>, and <span class="font-semibold">business financials</span>.
+          </p>
         </div>
 
-        <div class="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg">
-          <h4 class="text-2xl font-semibold text-gray-900 mb-4">Core Competency Areas</h4>
+        <!-- Core Competency Areas -->
+        <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
+          <h4 class="text-lg font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">
+            Core Competency Areas
+          </h4>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-white p-5 rounded-lg shadow-md">
-              <h5 class="font-bold text-green-600 mb-3 text-lg">📊 Entrepreneurial Concepts</h5>
-              <p class="text-gray-700 text-sm">Understanding the fundamentals of entrepreneurship, innovation, and business opportunity recognition</p>
+            <!-- Entrepreneurial Concepts -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h5 class="text-base font-semibold text-gray-900 mb-2">Entrepreneurial Concepts</h5>
+              <p class="text-gray-700 text-sm leading-relaxed">Understanding the fundamentals of entrepreneurship, innovation, and business opportunity recognition</p>
             </div>
-            <div class="bg-white p-5 rounded-lg shadow-md">
-              <h5 class="font-bold text-blue-600 mb-3 text-lg">🎯 Marketing and Sales</h5>
-              <p class="text-gray-700 text-sm">Developing effective marketing strategies, customer acquisition, and sales techniques for small businesses</p>
+            
+            <!-- Marketing and Sales -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h5 class="text-base font-semibold text-gray-900 mb-2">Marketing and Sales</h5>
+              <p class="text-gray-700 text-sm leading-relaxed">Developing effective marketing strategies, customer acquisition, and sales techniques for small businesses</p>
             </div>
-            <div class="bg-white p-5 rounded-lg shadow-md">
-              <h5 class="font-bold text-purple-600 mb-3 text-lg">🚚 Production and Distribution</h5>
-              <p class="text-gray-700 text-sm">Managing operations, supply chain, and product/service delivery effectively</p>
+            
+            <!-- Production and Distribution -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h5 class="text-base font-semibold text-gray-900 mb-2">Production & Distribution</h5>
+              <p class="text-gray-700 text-sm leading-relaxed">Managing operations, supply chain, and product/service delivery effectively</p>
             </div>
-            <div class="bg-white p-5 rounded-lg shadow-md">
-              <h5 class="font-bold text-orange-600 mb-3 text-lg">💰 Business Financials</h5>
-              <p class="text-gray-700 text-sm">Understanding financial management, budgeting, cash flow, and basic accounting principles</p>
+            
+            <!-- Business Financials -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h5 class="text-base font-semibold text-gray-900 mb-2">Business Financials</h5>
+              <p class="text-gray-700 text-sm leading-relaxed">Understanding financial management, budgeting, cash flow, and basic accounting principles</p>
             </div>
           </div>
         </div>
 
-        <div class="bg-green-50 p-6 rounded-lg">
-          <h4 class="text-2xl font-semibold text-gray-900 mb-4">What You'll Learn</h4>
-          <ul class="space-y-3 text-gray-700">
+        <!-- What You'll Learn Section -->
+        <div class="bg-emerald-600 p-6 rounded-lg shadow text-white">
+          <h4 class="text-lg font-bold mb-4 border-b border-emerald-500 pb-3">
+            What You'll Learn
+          </h4>
+          <ul class="space-y-3">
             <li class="flex items-start">
-              <span class="text-green-600 font-bold mr-3 text-xl">✓</span>
-              <span><strong>Business Planning:</strong> How to develop comprehensive business plans and strategies</span>
+              <div class="bg-white bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center mr-3 flex-shrink-0 text-sm font-bold mt-0.5">✓</div>
+              <div>
+                <strong class="block text-sm mb-1">Business Planning</strong>
+                <span class="text-emerald-50 text-sm">How to develop comprehensive business plans and strategies</span>
+              </div>
+            </li>
+            <li class="flex items-start group">
+              <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-full w-10 h-10 flex items-center justify-center mr-4 flex-shrink-0 group-hover:bg-opacity-30 transition-all">
+                <span class="text-white font-bold text-xl">✓</span>
+              </div>
+              <div>
+                <strong class="block text-lg mb-1">Financial Management</strong>
+                <span class="text-green-50">Essential accounting and financial decision-making skills</span>
+              </div>
+            </li>
+            <li class="flex items-start group">
+              <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-full w-10 h-10 flex items-center justify-center mr-4 flex-shrink-0 group-hover:bg-opacity-30 transition-all">
+                <span class="text-white font-bold text-xl">✓</span>
+              </div>
+              <div>
+                <strong class="block text-lg mb-1">Marketing Fundamentals</strong>
+                <span class="text-green-50">Creating effective marketing campaigns and sales strategies</span>
+              </div>
             </li>
             <li class="flex items-start">
-              <span class="text-green-600 font-bold mr-3 text-xl">✓</span>
-              <span><strong>Financial Management:</strong> Essential accounting and financial decision-making skills</span>
+              <div class="bg-white bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center mr-3 flex-shrink-0 text-sm font-bold mt-0.5">✓</div>
+              <div>
+                <strong class="block text-sm mb-1">Operations Management</strong>
+                <span class="text-emerald-50 text-sm">Streamlining production and distribution processes</span>
+              </div>
             </li>
             <li class="flex items-start">
-              <span class="text-green-600 font-bold mr-3 text-xl">✓</span>
-              <span><strong>Marketing Fundamentals:</strong> Creating effective marketing campaigns and sales strategies</span>
-            </li>
-            <li class="flex items-start">
-              <span class="text-green-600 font-bold mr-3 text-xl">✓</span>
-              <span><strong>Operations Management:</strong> Streamlining production and distribution processes</span>
-            </li>
-            <li class="flex items-start">
-              <span class="text-green-600 font-bold mr-3 text-xl">✓</span>
-              <span><strong>Risk Assessment:</strong> Identifying and managing business risks effectively</span>
+              <div class="bg-white bg-opacity-20 rounded-full w-6 h-6 flex items-center justify-center mr-3 flex-shrink-0 text-sm font-bold mt-0.5">✓</div>
+              <div>
+                <strong class="block text-sm mb-1">Risk Assessment</strong>
+                <span class="text-emerald-50 text-sm">Identifying and managing business risks effectively</span>
+              </div>
             </li>
           </ul>
         </div>
 
-        <div>
-          <h4 class="text-2xl font-semibold text-gray-900 mb-3">Who Should Take This Certification?</h4>
-          <p class="text-gray-700 mb-4 text-lg">The ESB certification is ideal for aspiring entrepreneurs, small business owners, business students, and professionals looking to start or grow their own ventures. It provides a solid foundation in business principles and validates your readiness to launch and manage a successful small business.</p>
+        <!-- Who Should Take This -->
+        <div class="bg-white p-6 rounded-lg shadow border border-gray-200">
+          <h4 class="text-lg font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">
+            Who Should Take This Certification?
+          </h4>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            The ESB certification is ideal for <span class="font-semibold">aspiring entrepreneurs</span>, <span class="font-semibold">small business owners</span>, <span class="font-semibold">business students</span>, and <span class="font-semibold">professionals</span> looking to start or grow their own ventures. It provides a solid foundation in business principles and validates your readiness to launch and manage a successful small business.
+          </p>
         </div>
       </div>`,
       benefits: [
@@ -706,13 +864,12 @@ export function Programmes() {
   };
 
   const handleLearnMore = (program: Program) => {
-    setSelectedProgram(program);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedProgram(null);
+    navigate(`/programmes/${program.id}`, {
+      state: {
+        program,
+        activeTab
+      }
+    });
   };
 
   const levels = activeTab === 'sips' 
@@ -927,166 +1084,6 @@ export function Programmes() {
           </div>
         )}
       </div>
-
-      {/* Programme Details Modal */}
-      {showModal && selectedProgram && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-2xl">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    {activeTab === 'ibm' && <img src="/partners/IBM logo..jpeg" alt="IBM" className="h-8 w-auto" />}
-                    {activeTab === 'certiport' && <img src="/partners/Certiport logo.svg" alt="Certiport" className="h-8 w-auto" />}
-                    <span className="text-sm font-semibold bg-blue-800 px-3 py-1 rounded-full">
-                      {activeTab === 'ibm' ? 'IBM Programme' : activeTab === 'certiport' ? 'Certiport Programme' : 'SIPS Programme'}
-                    </span>
-                  </div>
-                  <h2 className="text-2xl font-bold">{selectedProgram.name}</h2>
-                </div>
-                <button
-                  onClick={handleCloseModal}
-                  className="text-white hover:bg-blue-800 rounded-full p-2 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-6">
-              {/* Overview */}
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
-                  <BookOpen className="mr-2 text-blue-600" size={24} />
-                  Programme Overview
-                </h3>
-                <div 
-                  className="text-gray-700 leading-relaxed text-justify"
-                  dangerouslySetInnerHTML={{ __html: selectedProgram.detailedDescription || '' }}
-                />
-              </div>
-
-              {/* Programme Benefits */}
-              {selectedProgram.benefits && selectedProgram.benefits.length > 0 && (
-                <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
-                  <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
-                    <Award className="mr-2 text-blue-600" size={24} />
-                    What You'll Gain
-                  </h3>
-                  <ul className="space-y-2">
-                    {selectedProgram.benefits.map((benefit, index) => (
-                      <li key={index} className="flex items-start text-gray-700">
-                        <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="text-sm">{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Key Topics */}
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">
-                  Key Topics Covered
-                </h3>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {selectedProgram.modules.map((module, index) => (
-                    <div key={index} className="flex items-start bg-gray-50 p-3 rounded-lg">
-                      <span className="text-blue-600 mr-2 font-bold">•</span>
-                      <span className="text-sm text-gray-700">{module}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Target Audience */}
-              {selectedProgram.targetAudience && selectedProgram.targetAudience.length > 0 && (
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
-                    <Users className="mr-2 text-blue-600" size={24} />
-                    Who Should Enroll
-                  </h3>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    {selectedProgram.targetAudience.map((audience, index) => (
-                      <div key={index} className="flex items-center bg-gray-50 p-3 rounded-lg">
-                        <svg className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        <span className="text-sm text-gray-700">{audience}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Programme Details */}
-              <div className="grid md:grid-cols-3 gap-4 bg-gray-50 p-5 rounded-xl">
-                <div className="text-center">
-                  <Clock className="mx-auto mb-2 text-blue-600" size={28} />
-                  <p className="text-xs text-gray-600 font-semibold mb-1">Duration</p>
-                  <p className="text-sm text-gray-900 font-medium">{selectedProgram.duration}</p>
-                </div>
-                <div className="text-center">
-                  <Users className="mx-auto mb-2 text-blue-600" size={28} />
-                  <p className="text-xs text-gray-600 font-semibold mb-1">Eligibility</p>
-                  <p className="text-sm text-gray-900 font-medium">{selectedProgram.eligibility}</p>
-                </div>
-                <div className="text-center">
-                  <Award className="mx-auto mb-2 text-blue-600" size={28} />
-                  <p className="text-xs text-gray-600 font-semibold mb-1">Level</p>
-                  <p className="text-sm text-gray-900 font-medium">{selectedProgram.level}</p>
-                </div>
-              </div>
-
-              {/* Certification Info */}
-              {selectedProgram.certificationInfo && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl border-l-4 border-blue-600">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center">
-                    <Award className="mr-2 text-blue-600" size={22} />
-                    Certification
-                  </h3>
-                  <p className="text-gray-700 text-sm leading-relaxed">
-                    {selectedProgram.certificationInfo}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-2xl border-t flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => {
-                  const url = activeTab === 'certiport' 
-                    ? 'https://lpec.lk/academic-partners/certiport-certification/'
-                    : selectedProgram.learnMoreUrl;
-                  window.open(url, '_blank', 'noopener,noreferrer');
-                }}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                {activeTab === 'certiport' ? 'Visit Certiport Site' : 'Visit IBM Website'}
-              </button>
-              <button
-                onClick={() => {
-                  handleCloseModal();
-                  navigate('/apply');
-                }}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold transition-colors shadow-md hover:shadow-lg"
-              >
-                Submit Your Inquiry
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

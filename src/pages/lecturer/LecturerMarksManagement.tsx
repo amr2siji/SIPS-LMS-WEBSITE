@@ -703,8 +703,8 @@ export function LecturerMarksManagement() {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredExams.map((submission) => (
-                            <tr key={submission.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          {filteredExams.map((submission, idx) => (
+                            <tr key={submission.id != null ? `exam-${submission.id}` : `exam-pending-${submission.examId}-${submission.studentNic}-${idx}`} className="border-b border-gray-100 hover:bg-gray-50">
                               <td className="py-3 px-4">
                                 <div>
                                   <p className="font-medium text-gray-900">{submission.studentName}</p>

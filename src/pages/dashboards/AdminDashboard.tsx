@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Users, BookOpen, FileText, DollarSign, LogOut, GraduationCap, Bell, Building2, Calendar } from 'lucide-react';
+import { Users, BookOpen, FileText, DollarSign, LogOut, GraduationCap, Building2, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { NotificationBell } from '../../components/NotificationBell';
 
 interface AdminDashboardData {
   stats: {
@@ -216,15 +217,7 @@ export function AdminDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                className="relative flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-4 py-2.5 rounded-lg transition-all font-medium border border-white/20"
-                title="Notifications"
-              >
-                <Bell size={18} />
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                  5
-                </span>
-              </button>
+              <NotificationBell />
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-5 py-2.5 rounded-lg transition-all font-medium border border-white/20"

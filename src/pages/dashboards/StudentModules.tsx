@@ -73,6 +73,19 @@ export function StudentModules() {
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Notification state
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  }>({ show: false, type: 'success', title: '', message: '' });
+
+  const showNotification = (type: 'success' | 'error', title: string, message: string) => {
+    setNotification({ show: true, type, title, message });
+    setTimeout(() => setNotification({ show: false, type: 'success', title: '', message: '' }), 4000);
+  };
+
   useEffect(() => {
     if (programId && intakeId) {
       loadModules();
@@ -251,7 +264,7 @@ export function StudentModules() {
         throw new Error('Assignment submission failed');
       }
 
-      alert('Assignment submitted successfully!');
+      showNotification('success', 'Assignment Submitted', `"${selectedAssignment?.title}" has been submitted successfully!`);
       setShowSubmitModal(false);
       setSubmissionFile(null);
       setSelectedAssignment(null);
@@ -262,7 +275,7 @@ export function StudentModules() {
       }
     } catch (error) {
       console.error('Error submitting assignment:', error);
-      alert('Failed to submit assignment. Please try again.');
+      showNotification('error', 'Submission Failed', 'Failed to submit assignment. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -298,7 +311,7 @@ export function StudentModules() {
       setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
     } catch (error) {
       console.error('Error viewing file:', error);
-      alert('Failed to open file. Please try again.');
+      showNotification('error', 'File Error', 'Failed to open file. Please try again.');
     }
   };
 
@@ -340,6 +353,34 @@ export function StudentModules() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50">
+
+      {/* Toast Notification */}
+      {notification.show && (
+        <div className={`fixed top-6 right-6 z-[100] max-w-sm w-full shadow-lg rounded-lg p-4 flex items-start gap-3 transition-all duration-300 ${
+          notification.type === 'success'
+            ? 'bg-emerald-50 border border-emerald-200'
+            : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className={`text-xl ${notification.type === 'success' ? 'text-emerald-500' : 'text-red-500'}`}>
+            {notification.type === 'success' ? '✅' : '❌'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`font-semibold text-sm ${notification.type === 'success' ? 'text-emerald-800' : 'text-red-800'}`}>
+              {notification.title}
+            </p>
+            <p className={`text-sm mt-0.5 ${notification.type === 'success' ? 'text-emerald-700' : 'text-red-700'}`}>
+              {notification.message}
+            </p>
+          </div>
+          <button
+            onClick={() => setNotification(n => ({ ...n, show: false }))}
+            className={`text-lg leading-none ${notification.type === 'success' ? 'text-emerald-400 hover:text-emerald-600' : 'text-red-400 hover:text-red-600'}`}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <nav className="bg-gradient-to-r from-slate-700 via-emerald-600 to-slate-700 shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

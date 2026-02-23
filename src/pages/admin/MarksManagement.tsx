@@ -73,10 +73,11 @@ interface OverallScore {
 interface ScoreWeight {
   id: string;
   module_id: string | number;
-  intake_id: string | number;
+  intake_id?: string | number | null; // null = module-wide
   assignments_weight: number;
   exams_weight: number;
   is_published: boolean;
+  module_wide?: boolean; // true when intake_id is null
   // Optional fields from backend that include display info
   moduleCode?: string;
   moduleName?: string;
@@ -94,6 +95,7 @@ export function MarksManagement() {
   const [scoreWeights, setScoreWeights] = useState<ScoreWeight[]>([]);
   
   const [loading, setLoading] = useState(true);
+  const [applyingDefaults, setApplyingDefaults] = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [showSetMarksModal, setShowSetMarksModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -136,6 +138,10 @@ export function MarksManagement() {
   const [overallGradeFilter, setOverallGradeFilter] = useState('all'); // all, A+, A, A-, B+, B, C, F
   const [overallStatusFilter, setOverallStatusFilter] = useState('all'); // all, finalized, draft
   const [overallScoreRangeFilter, setOverallScoreRangeFilter] = useState('all'); // all, 90-100, 80-89, 70-79, 60-69, below-60
+
+  // Pagination state for Overall Scores table
+  const [overallCurrentPage, setOverallCurrentPage] = useState(1);
+  const OVERALL_PAGE_SIZE = 10;
 
   // Notification state
   const [notification, setNotification] = useState<{
@@ -271,35 +277,33 @@ export function MarksManagement() {
   const [modulesAssignedToIntakes, setModulesAssignedToIntakes] = useState<any[]>([]);
 
   // Helper function to extract unique modules from submissions data
+  // Only used as a fallback when the modules API hasn't loaded any modules yet
   const extractModulesFromSubmissions = (submissions: any[]) => {
-    const modulesMap = new Map();
-    
-    submissions.forEach((sub: any) => {
-      // Handle both submission format and overall score format
-      const moduleId = sub.module_id || sub.moduleId;
-      const moduleCode = sub.moduleCode || sub.modules?.module_code;
-      const moduleName = sub.moduleName || sub.modules?.module_name;
-      
-      if (moduleCode && moduleName) {
-        // Use moduleCode as the unique key, but store the numeric ID if available
-        if (!modulesMap.has(moduleCode)) {
-          modulesMap.set(moduleCode, {
-            id: moduleId || moduleCode, // Use numeric ID if available, otherwise moduleCode
-            moduleCode: moduleCode,
-            moduleName: moduleName,
-            module_code: moduleCode, // For backward compatibility
-            module_name: moduleName  // For backward compatibility
-          });
+    // Don't overwrite a properly loaded module list from the API
+    setModules(prev => {
+      if (prev.length > 0) return prev; // API already loaded modules — don't overwrite
+
+      const modulesMap = new Map();
+      submissions.forEach((sub: any) => {
+        const moduleId = sub.module_id || sub.moduleId;
+        const moduleCode = sub.moduleCode || sub.modules?.module_code;
+        const moduleName = sub.moduleName || sub.modules?.module_name;
+        if (moduleCode && moduleName) {
+          if (!modulesMap.has(moduleCode)) {
+            modulesMap.set(moduleCode, {
+              id: moduleId || moduleCode,
+              moduleCode,
+              moduleName,
+              module_code: moduleCode,
+              module_name: moduleName
+            });
+          }
         }
-      }
+      });
+      const extracted = Array.from(modulesMap.values());
+      console.log('Fallback: extracted modules from submissions:', extracted);
+      return extracted.length > 0 ? extracted : prev;
     });
-    
-    const extractedModules = Array.from(modulesMap.values());
-    console.log('Extracted modules from data:', extractedModules);
-    
-    if (extractedModules.length > 0) {
-      setModules(extractedModules);
-    }
   };
 
   useEffect(() => {
@@ -1408,7 +1412,7 @@ export function MarksManagement() {
     }
   };
 
-  const loadOverallScores = async () => {
+  const loadOverallScores = async (overrideModuleId?: string | null) => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
       const token = localStorage.getItem('jwt_token');
@@ -1419,9 +1423,12 @@ export function MarksManagement() {
       }
 
       // Build query parameters
+      // overrideModuleId=null means "load all" (ignore selectedModuleId state)
+      // overrideModuleId=undefined means "use current selectedModuleId state"
       const params = new URLSearchParams();
-      if (selectedModuleId && selectedModuleId !== 'all') {
-        params.append('moduleId', selectedModuleId);
+      const moduleIdToUse = overrideModuleId === undefined ? selectedModuleId : overrideModuleId;
+      if (moduleIdToUse && moduleIdToUse !== 'all') {
+        params.append('moduleId', moduleIdToUse);
       }
 
       const response = await fetch(`${API_BASE_URL}/api/admin/marks/overall?${params}`, {
@@ -1498,10 +1505,11 @@ export function MarksManagement() {
         const transformedWeights: ScoreWeight[] = weightsData.map((w: any) => ({
           id: w.id.toString(),
           module_id: w.moduleId,
-          intake_id: w.intakeId,
+          intake_id: w.intakeId ?? null,
           assignments_weight: w.assignmentsWeight,
           exams_weight: w.examsWeight,
           is_published: w.isPublished,
+          module_wide: w.moduleWide ?? (w.intakeId == null),
           // Store module and intake info directly from backend
           moduleCode: w.moduleCode,
           moduleName: w.moduleName,
@@ -1878,35 +1886,17 @@ export function MarksManagement() {
 
   // Filter function for Score Weights
   const getFilteredScoreWeights = () => {
-    // Get unique module IDs that are assigned to any intake
-    // These are the modules where assignments/exams can be created
-    const assignedModuleIds = new Set(
-      modulesAssignedToIntakes.map(m => Number(m.moduleId)).filter(id => !isNaN(id))
-    );
-    
-    console.log('Modules assigned to intakes:', modulesAssignedToIntakes.length);
-    console.log('Assigned module IDs:', Array.from(assignedModuleIds));
-    console.log('Total score weights:', scoreWeights.length);
-    
     return scoreWeights.filter(weight => {
-      // Convert weight module_id to number for comparison
-      const weightModuleId = Number(weight.module_id);
-      
-      // Only show weights for modules that are assigned to at least one intake
-      const isAssignedToIntake = assignedModuleIds.has(weightModuleId);
-      
       // Module filter
-      const matchesModule = weightModuleFilter === 'all' || weight.module_id === weightModuleFilter;
-      
-      // Intake filter
-      const matchesIntake = weightIntakeFilter === 'all' || weight.intake_id === weightIntakeFilter;
-      
+      const matchesModule = weightModuleFilter === 'all' ||
+        Number(weight.module_id) === Number(weightModuleFilter);
+
       // Published status filter
       const matchesPublished = weightPublishedFilter === 'all' ||
         (weightPublishedFilter === 'published' && weight.is_published) ||
         (weightPublishedFilter === 'draft' && !weight.is_published);
-      
-      return isAssignedToIntake && matchesModule && matchesIntake && matchesPublished;
+
+      return matchesModule && matchesPublished;
     });
   };
 
@@ -1921,8 +1911,8 @@ export function MarksManagement() {
       return;
     }
 
-    if (!selectedModuleId || !selectedIntakeId) {
-      alert('Please select both a module and an intake');
+    if (!selectedModuleId) {
+      alert('Please select a module');
       return;
     }
 
@@ -1931,23 +1921,22 @@ export function MarksManagement() {
       const token = localStorage.getItem('jwt_token');
 
       if (!token) {
-        alert('Authentication required. Please log in again.');
+        showNotification('error', 'Authentication Error', 'Authentication required. Please log in again.');
         return;
       }
 
-      // Prepare request body
+      // Module-wide: no intakeId sent — applies to ALL intakes of this module
       const requestBody = {
         moduleId: parseInt(selectedModuleId.toString()),
-        intakeId: parseInt(selectedIntakeId.toString()),
         assignmentsWeight: assignmentWeight,
         examsWeight: examWeight,
         isPublished: true
       };
 
-      console.log('Saving score weight:', requestBody);
+      console.log('Saving module-wide score weight:', requestBody);
 
-      // Save to backend API
-      const response = await fetch(`${API_BASE_URL}/api/admin/score-weights`, {
+      // Save to module-wide endpoint
+      const response = await fetch(`${API_BASE_URL}/api/admin/score-weights/module-wide`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1967,19 +1956,55 @@ export function MarksManagement() {
       // Close modal and reset
       setShowWeightModal(false);
       setSelectedModuleId('');
-      setSelectedIntakeId('');
       setAssignmentWeight(40);
       setExamWeight(60);
 
-      // Show success message
-      alert('Score weights saved successfully! The configuration has been updated.');
+      // Show success toaster
+      const savedModule = modules.find(m => m.id.toString() === selectedModuleId.toString());
+      const moduleName = savedModule ? `${savedModule.moduleCode} - ${savedModule.moduleName}` : 'module';
+      showNotification('success', 'Score Weights Saved', `Weights for "${moduleName}" set to ${assignmentWeight}% assignments / ${examWeight}% exams. Applies to all intakes.`);
 
-      // Reload score weights and overall scores
+      // Reload score weights and overall scores (null = load all, not filtered by module)
       await loadScoreWeights();
-      await loadOverallScores();
+      setOverallCurrentPage(1);
+      await loadOverallScores(null);
     } catch (error: any) {
       console.error('Error saving weights:', error);
-      alert(error.message || 'Failed to save score weights. Please try again.');
+      showNotification('error', 'Save Failed', error.message || 'Failed to save score weights. Please try again.');
+    }
+  };
+
+  // Apply default weights (40% / 60%) to ALL modules that don't have a config yet
+  const handleApplyDefaultWeights = async () => {
+    if (!window.confirm(
+      'This will set Assignment 40% / Exam 60% as default weights for all modules that do not yet have a weight configured.\n\nModules that already have weights will NOT be changed.\n\nContinue?'
+    )) return;
+
+    setApplyingDefaults(true);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const token = localStorage.getItem('jwt_token');
+      if (!token) {
+        showNotification('error', 'Authentication Error', 'Authentication required. Please log in again.');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/score-weights/apply-defaults`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Failed to apply default weights');
+
+      showNotification('success', 'Default Weights Applied', result.data || 'Default weights (40% / 60%) applied to all unconfigured modules.');
+      await loadScoreWeights();
+      setOverallCurrentPage(1);
+      await loadOverallScores(null);
+    } catch (error: any) {
+      showNotification('error', 'Apply Failed', error.message || 'Failed to apply default weights. Please try again.');
+    } finally {
+      setApplyingDefaults(false);
     }
   };
 
@@ -2107,6 +2132,13 @@ export function MarksManagement() {
   const filteredAssignments = getFilteredAssignments();
   const filteredExams = getFilteredExams();
   const filteredOverall = getFilteredOverallScores();
+
+  // Overall Scores pagination
+  const overallTotalPages = Math.ceil(filteredOverall.length / OVERALL_PAGE_SIZE);
+  const paginatedOverall = filteredOverall.slice(
+    (overallCurrentPage - 1) * OVERALL_PAGE_SIZE,
+    overallCurrentPage * OVERALL_PAGE_SIZE
+  );
 
   const pendingAssignments = filteredAssignments.filter(s => s.status === 'pending');
   const gradedAssignments = filteredAssignments.filter(s => s.status === 'graded');
@@ -2322,6 +2354,7 @@ export function MarksManagement() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Module</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assignment</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Max Marks</th>
@@ -2335,6 +2368,12 @@ export function MarksManagement() {
                             <div>
                               <div className="font-medium text-gray-900">{submission.profiles?.full_name}</div>
                               <div className="text-sm text-gray-500">{submission.profiles?.email}</div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm">
+                              <div className="font-medium text-gray-900">{submission.moduleCode}</div>
+                              <div className="text-gray-500 text-xs">{submission.moduleName}</div>
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -2403,6 +2442,7 @@ export function MarksManagement() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Module</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assignment</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marks</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Percentage</th>
@@ -2416,6 +2456,12 @@ export function MarksManagement() {
                         return (
                           <tr key={submission.id}>
                             <td className="px-4 py-3">{submission.profiles?.full_name}</td>
+                            <td className="px-4 py-3">
+                              <div className="text-sm">
+                                <div className="font-medium text-gray-900">{submission.moduleCode}</div>
+                                <div className="text-gray-500 text-xs">{submission.moduleName}</div>
+                              </div>
+                            </td>
                             <td className="px-4 py-3">{submission.assignments?.title}</td>
                             <td className="px-4 py-3 font-semibold">
                               {submission.marks_obtained}/{submission.assignments?.max_marks}
@@ -2588,6 +2634,7 @@ export function MarksManagement() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Module</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Exam</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Max Marks</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
@@ -2597,6 +2644,12 @@ export function MarksManagement() {
                       {pendingExams.map((submission) => (
                         <tr key={submission.id}>
                           <td className="px-4 py-3">{submission.profiles?.full_name}</td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm">
+                              <div className="font-medium text-gray-900">{submission.moduleCode}</div>
+                              <div className="text-gray-500 text-xs">{submission.moduleName}</div>
+                            </div>
+                          </td>
                           <td className="px-4 py-3">{submission.exams?.exam_name}</td>
                           <td className="px-4 py-3">{submission.exams?.max_marks}</td>
                           <td className="px-4 py-3">
@@ -2639,6 +2692,7 @@ export function MarksManagement() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Module</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Exam</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Percentage</th>
@@ -2652,6 +2706,12 @@ export function MarksManagement() {
                         return (
                           <tr key={submission.id}>
                             <td className="px-4 py-3">{submission.profiles?.full_name}</td>
+                            <td className="px-4 py-3">
+                              <div className="text-sm">
+                                <div className="font-medium text-gray-900">{submission.moduleCode}</div>
+                                <div className="text-gray-500 text-xs">{submission.moduleName}</div>
+                              </div>
+                            </td>
                             <td className="px-4 py-3">{submission.exams?.exam_name}</td>
                             <td className="px-4 py-3 font-semibold">
                               {submission.score}/{submission.exams?.max_marks}
@@ -2687,7 +2747,9 @@ export function MarksManagement() {
                     <Settings className="text-purple-600" size={24} />
                     Module-Wide Score Weight Configuration
                   </h3>
-                  <p className="text-sm text-gray-600 mt-1">Configure scoring weights for each module assigned to intakes (where assignments/exams can be created)</p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Configure scoring weights per module — the same weights apply to <strong>all intakes</strong> of that module automatically.
+                  </p>
                 </div>
                 <button
                   onClick={() => setShowWeightModal(true)}
@@ -2696,9 +2758,19 @@ export function MarksManagement() {
                   Configure Weights
                 </button>
               </div>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={handleApplyDefaultWeights}
+                  disabled={applyingDefaults}
+                  className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  title="Sets 40% assignments / 60% exams for all modules that have no weight configured yet"
+                >
+                  {applyingDefaults ? '⏳ Applying...' : '⚡ Set Default (40/60) for All Modules'}
+                </button>
+              </div>
 
               {/* Weight Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Module</label>
                   <select
@@ -2708,20 +2780,7 @@ export function MarksManagement() {
                   >
                     <option value="all">All Modules</option>
                     {modules.map((module) => (
-                      <option key={module.id} value={module.id}>{module.moduleCode}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Intake</label>
-                  <select
-                    value={weightIntakeFilter}
-                    onChange={(e) => setWeightIntakeFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="all">All Intakes</option>
-                    {intakes.map((intake) => (
-                      <option key={intake.id} value={intake.id}>{intake.intake_name} {intake.intake_year}</option>
+                      <option key={module.id} value={module.id}>{module.moduleCode} - {module.moduleName}</option>
                     ))}
                   </select>
                 </div>
@@ -2750,7 +2809,6 @@ export function MarksManagement() {
                     <button
                       onClick={() => {
                         setWeightModuleFilter('all');
-                        setWeightIntakeFilter('all');
                         setWeightPublishedFilter('all');
                       }}
                       className="text-purple-600 hover:text-purple-800 font-medium"
@@ -2770,8 +2828,11 @@ export function MarksManagement() {
                           <p className="text-sm text-gray-600">
                             {weight.moduleName || 'Unknown Module'}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Intake: {weight.intakeName || 'N/A'} ({weight.intakeYear || 'N/A'})
+                          <p className="text-xs mt-1">
+                            {weight.module_wide || weight.intake_id == null
+                              ? <span className="text-purple-700 font-medium">📌 Applies to All Intakes</span>
+                              : <span className="text-gray-500">Intake: {weight.intakeName || 'N/A'} ({weight.intakeYear || 'N/A'})</span>
+                            }
                           </p>
                         </div>
                         <div className="flex items-center gap-2 mb-2">
@@ -2780,6 +2841,11 @@ export function MarksManagement() {
                           }`}>
                             {weight.is_published ? 'Published' : 'Draft'}
                           </span>
+                          {(weight.module_wide || weight.intake_id == null) && (
+                            <span className="px-2 py-1 text-xs rounded bg-purple-100 text-purple-800">
+                              Module-Wide
+                            </span>
+                          )}
                         </div>
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
@@ -2815,7 +2881,7 @@ export function MarksManagement() {
                     type="text"
                     placeholder="Student, module..."
                     value={overallSearchTerm}
-                    onChange={(e) => setOverallSearchTerm(e.target.value)}
+                    onChange={(e) => { setOverallSearchTerm(e.target.value); setOverallCurrentPage(1); }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                 </div>
@@ -2825,7 +2891,7 @@ export function MarksManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                   <select
                     value={overallStatusFilter}
-                    onChange={(e) => setOverallStatusFilter(e.target.value)}
+                    onChange={(e) => { setOverallStatusFilter(e.target.value); setOverallCurrentPage(1); }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="all">All Status</option>
@@ -2842,7 +2908,7 @@ export function MarksManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Module</label>
                   <select
                     value={overallModuleFilter}
-                    onChange={(e) => setOverallModuleFilter(e.target.value)}
+                    onChange={(e) => { setOverallModuleFilter(e.target.value); setOverallCurrentPage(1); }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="all">All Modules</option>
@@ -2857,7 +2923,7 @@ export function MarksManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Intake</label>
                   <select
                     value={overallIntakeFilter}
-                    onChange={(e) => setOverallIntakeFilter(e.target.value)}
+                    onChange={(e) => { setOverallIntakeFilter(e.target.value); setOverallCurrentPage(1); }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="all">All Intakes</option>
@@ -2872,7 +2938,7 @@ export function MarksManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Grade</label>
                   <select
                     value={overallGradeFilter}
-                    onChange={(e) => setOverallGradeFilter(e.target.value)}
+                    onChange={(e) => { setOverallGradeFilter(e.target.value); setOverallCurrentPage(1); }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="all">All Grades</option>
@@ -2894,7 +2960,7 @@ export function MarksManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Score Range</label>
                   <select
                     value={overallScoreRangeFilter}
-                    onChange={(e) => setOverallScoreRangeFilter(e.target.value)}
+                    onChange={(e) => { setOverallScoreRangeFilter(e.target.value); setOverallCurrentPage(1); }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
                     <option value="all">All Scores</option>
@@ -2911,7 +2977,10 @@ export function MarksManagement() {
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">
-                    Showing <span className="font-bold text-purple-600">{filteredOverall.length}</span> of {overallScores.length} scores
+                    Showing <span className="font-bold text-purple-600">
+                      {filteredOverall.length === 0 ? 0 : (overallCurrentPage - 1) * OVERALL_PAGE_SIZE + 1}–{Math.min(overallCurrentPage * OVERALL_PAGE_SIZE, filteredOverall.length)}
+                    </span> of <span className="font-bold text-purple-600">{filteredOverall.length}</span> scores
+                    {filteredOverall.length !== overallScores.length && ` (filtered from ${overallScores.length} total)`}
                   </span>
                   <button
                     onClick={() => {
@@ -2921,6 +2990,7 @@ export function MarksManagement() {
                       setOverallGradeFilter('all');
                       setOverallStatusFilter('all');
                       setOverallScoreRangeFilter('all');
+                      setOverallCurrentPage(1);
                     }}
                     className="text-purple-600 hover:text-purple-800 font-medium"
                   >
@@ -2970,7 +3040,7 @@ export function MarksManagement() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {filteredOverall.map((score) => (
+                      {paginatedOverall.map((score) => (
                         <tr key={score.id}>
                           <td className="px-4 py-3">{score.profiles?.full_name}</td>
                           <td className="px-4 py-3">
@@ -3026,6 +3096,73 @@ export function MarksManagement() {
                   </table>
                 </div>
               )}
+
+              {/* Overall Scores Pagination */}
+              {filteredOverall.length > OVERALL_PAGE_SIZE && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                  <span className="text-sm text-gray-600">
+                    Page <span className="font-semibold text-purple-600">{overallCurrentPage}</span> of{' '}
+                    <span className="font-semibold text-purple-600">{overallTotalPages}</span>
+                    {' '}— {filteredOverall.length} records
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setOverallCurrentPage(1)}
+                      disabled={overallCurrentPage === 1}
+                      className="px-2 py-1 rounded border border-gray-300 text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="First page"
+                    >
+                      «
+                    </button>
+                    <button
+                      onClick={() => setOverallCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={overallCurrentPage === 1}
+                      className="px-3 py-1 rounded border border-gray-300 text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      ‹ Prev
+                    </button>
+                    {Array.from({ length: overallTotalPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === overallTotalPages || Math.abs(p - overallCurrentPage) <= 2)
+                      .reduce<(number | 'ellipsis')[]>((acc, p, idx, arr) => {
+                        if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('ellipsis');
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((item, idx) =>
+                        item === 'ellipsis' ? (
+                          <span key={`e-${idx}`} className="px-2 py-1 text-gray-400 text-sm">…</span>
+                        ) : (
+                          <button
+                            key={item}
+                            onClick={() => setOverallCurrentPage(item as number)}
+                            className={`px-3 py-1 rounded border text-sm transition-colors ${
+                              overallCurrentPage === item
+                                ? 'bg-purple-600 text-white border-purple-600'
+                                : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      )}
+                    <button
+                      onClick={() => setOverallCurrentPage(p => Math.min(overallTotalPages, p + 1))}
+                      disabled={overallCurrentPage === overallTotalPages}
+                      className="px-3 py-1 rounded border border-gray-300 text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next ›
+                    </button>
+                    <button
+                      onClick={() => setOverallCurrentPage(overallTotalPages)}
+                      disabled={overallCurrentPage === overallTotalPages}
+                      className="px-2 py-1 rounded border border-gray-300 text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Last page"
+                    >
+                      »
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -3036,34 +3173,11 @@ export function MarksManagement() {
             <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Configure Score Weights</h2>
               <p className="text-sm text-gray-600 mb-6">
-                These weights will apply to <strong>all students</strong> enrolled in the selected module and intake.
+                These weights will apply to <strong>all intakes</strong> of the selected module automatically.
               </p>
-              
-              {/* Module and Intake Selection */}
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Intake <span className="text-red-600">*</span>
-                  </label>
-                  <select
-                    value={selectedIntakeId}
-                    onChange={(e) => {
-                      const newIntakeId = e.target.value;
-                      setSelectedIntakeId(newIntakeId);
-                      setSelectedModuleId(''); // Reset module selection when intake changes
-                      loadModulesByIntake(newIntakeId); // Load modules for selected intake
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="">-- Select Intake --</option>
-                    {intakes.map((intake) => (
-                      <option key={intake.id} value={intake.id}>
-                        {intake.intakeName || intake.intake_name || 'Unnamed Intake'} ({intake.intakeYear || intake.intake_year || 'N/A'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
+              {/* Module Selection (no intake needed) */}
+              <div className="space-y-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Module <span className="text-red-600">*</span>
@@ -3071,24 +3185,18 @@ export function MarksManagement() {
                   <select
                     value={selectedModuleId}
                     onChange={(e) => setSelectedModuleId(e.target.value)}
-                    disabled={!selectedIntakeId}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
-                    <option value="">
-                      {selectedIntakeId ? '-- Select Module --' : '-- Select Intake First --'}
-                    </option>
-                    {/* Show modules assigned to the selected intake */}
-                    {intakeModules.map((intakeModule) => (
-                      <option key={intakeModule.moduleId} value={intakeModule.moduleId}>
-                        {intakeModule.moduleCode} - {intakeModule.moduleName}
+                    <option value="">-- Select Module --</option>
+                    {modules.map((module) => (
+                      <option key={module.id} value={module.id}>
+                        {module.moduleCode} - {module.moduleName}
                       </option>
                     ))}
                   </select>
-                  {selectedIntakeId && intakeModules.length === 0 && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      ⚠️ No modules assigned to this intake
-                    </p>
-                  )}
+                  <p className="text-xs text-blue-600 mt-1">
+                    ℹ️ The configured weights will automatically apply to all intakes that include this module.
+                  </p>
                 </div>
               </div>
 
@@ -3152,7 +3260,6 @@ export function MarksManagement() {
                   onClick={() => {
                     setShowWeightModal(false);
                     setSelectedModuleId('');
-                    setSelectedIntakeId('');
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -3160,7 +3267,7 @@ export function MarksManagement() {
                 </button>
                 <button
                   onClick={handleSaveWeights}
-                  disabled={!selectedModuleId || !selectedIntakeId}
+                  disabled={!selectedModuleId}
                   className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
                   Save Weights

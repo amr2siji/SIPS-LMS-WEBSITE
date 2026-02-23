@@ -114,6 +114,41 @@ export interface ApiResponseData<T> {
   timestamp: string;
 }
 
+export interface StudentProfileData {
+  nic: string;
+  fullName: string;
+  nameWithInitials: string;
+  dateOfBirth: any; // string "2001-02-24" in production, number[] [2001,2,24] in dev
+  mobileNumber: string;
+  email: string;
+  permanentAddress: string;
+  emergencyContactName?: string;
+  emergencyRelationship?: string;
+  emergencyContactMobile?: string;
+  olQualifications?: string;
+  alQualifications?: string;
+  otherQualifications?: string;
+  studentStatus: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudentProfileUpdateRequest {
+  fullName?: string;
+  nameWithInitials?: string;
+  dateOfBirth?: string;
+  mobileNumber?: string;
+  email?: string;
+  permanentAddress?: string;
+  emergencyContactName?: string;
+  emergencyRelationship?: string;
+  emergencyContactMobile?: string;
+  olQualifications?: string;
+  alQualifications?: string;
+  otherQualifications?: string;
+}
+
 /**
  * Student Program Service
  * Handles all student portal API calls
@@ -313,6 +348,48 @@ export class StudentProgramService extends ApiService {
         success: false,
         message: error.message || 'Failed to fetch module exams',
       };
+    }
+  }
+
+  /**
+   * Get own student profile
+   * GET /api/student/profile
+   */
+  async getStudentProfile(): Promise<{ success: boolean; data?: StudentProfileData; message: string }> {
+    try {
+      const res = await this.get<StudentProfileData>('/api/student/profile');
+      return { success: res.success, data: res.data, message: res.message };
+    } catch (error: any) {
+      console.error('Error fetching student profile:', error);
+      return { success: false, message: error.message || 'Failed to fetch profile' };
+    }
+  }
+
+  /**
+   * Update own student profile
+   * PUT /api/student/profile
+   */
+  async updateStudentProfile(data: StudentProfileUpdateRequest): Promise<{ success: boolean; data?: StudentProfileData; message: string }> {
+    try {
+      const res = await this.put<StudentProfileData>('/api/student/profile', data);
+      return { success: res.success, data: res.data, message: res.message };
+    } catch (error: any) {
+      console.error('Error updating student profile:', error);
+      return { success: false, message: error.message || 'Failed to update profile' };
+    }
+  }
+
+  /**
+   * Change own password
+   * PUT /api/student/change-password
+   */
+  async changeStudentPassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const res = await this.put<void>('/api/student/change-password', { currentPassword, newPassword });
+      return { success: res.success, message: res.message };
+    } catch (error: any) {
+      console.error('Error changing student password:', error);
+      return { success: false, message: error.message || 'Failed to change password' };
     }
   }
 }

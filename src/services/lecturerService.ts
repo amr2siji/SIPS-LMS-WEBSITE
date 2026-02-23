@@ -92,6 +92,14 @@ class LecturerService extends ApiService {
     return this.get('/api/lecturer/profile');
   }
 
+  async updateLecturerProfile(data: Omit<LecturerRequest, 'nic' | 'password'>): Promise<ApiResponse<LecturerResponse>> {
+    return this.put('/api/lecturer/profile', data);
+  }
+
+  async changeLecturerPassword(currentPassword: string, newPassword: string): Promise<ApiResponse<void>> {
+    return this.put('/api/lecturer/change-password', { currentPassword, newPassword });
+  }
+
   async getMyModules(): Promise<ApiResponse<LecturerModuleAssignmentResponse[]>> {
     return this.get('/api/lecturer/my-modules');
   }

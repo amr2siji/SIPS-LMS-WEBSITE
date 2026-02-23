@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, CheckCircle, XCircle, Clock, FileText, Mail, Phone, User, Calendar, GraduationCap, MessageCircle, Eye, X } from 'lucide-react';
+import { ArrowLeft, Search, CheckCircle, XCircle, Clock, FileText, Mail, Phone, User, Calendar, GraduationCap, MessageCircle, Eye, X, Download, FileSpreadsheet } from 'lucide-react';
 import { inquiryService } from '../../services/inquiryService';
 import { studentApplicationService, StudentApplication, ApplicationStatistics, DetailedStudentApplication } from '../../services/studentApplicationService';
 
@@ -60,6 +60,16 @@ export function ReviewApplications() {
   const [totalPages, setTotalPages] = useState(0);
   // Removed unused totalElements state variable
   // const [totalElements, setTotalElements] = useState(0);
+
+  // ---- Excel Export State ----
+  const today = new Date().toISOString().split('T')[0];
+  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState(firstOfMonth);
+  const [exportEndDate, setExportEndDate] = useState(today);
+  const [exportStatusFilter, setExportStatusFilter] = useState('all');
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportMessage, setExportMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     if (activeTab === 'applications') {
@@ -156,6 +166,49 @@ export function ReviewApplications() {
       alert('Failed to load inquiries');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ---- Excel Export Handler ----
+  const handleExportExcel = async () => {
+    if (!exportStartDate || !exportEndDate) {
+      setExportMessage({ type: 'error', text: 'Please select both start and end dates.' });
+      return;
+    }
+    if (exportStartDate > exportEndDate) {
+      setExportMessage({ type: 'error', text: 'Start date must be before or equal to end date.' });
+      return;
+    }
+
+    setExportLoading(true);
+    setExportMessage(null);
+
+    const statusParam = exportStatusFilter === 'all' ? undefined : exportStatusFilter;
+
+    let result;
+    if (activeTab === 'applications') {
+      result = await studentApplicationService.exportApplicationsToExcel({
+        startDate: exportStartDate,
+        endDate: exportEndDate,
+        status: statusParam
+      });
+    } else {
+      result = await inquiryService.exportInquiriesToExcel({
+        startDate: exportStartDate,
+        endDate: exportEndDate,
+        status: statusParam
+      });
+    }
+
+    setExportLoading(false);
+    if (result.success) {
+      setExportMessage({ type: 'success', text: 'Report downloaded successfully!' });
+      setTimeout(() => {
+        setShowExportModal(false);
+        setExportMessage(null);
+      }, 1500);
+    } else {
+      setExportMessage({ type: 'error', text: result.message || 'Export failed. Please try again.' });
     }
   };
 
@@ -647,6 +700,19 @@ export function ReviewApplications() {
                 </>
               )}
             </select>
+            {/* Excel Export Button */}
+            <button
+              onClick={() => {
+                setExportStatusFilter('all');
+                setExportMessage(null);
+                setShowExportModal(true);
+              }}
+              className="flex items-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
+              title="Download Excel Report"
+            >
+              <FileSpreadsheet size={18} />
+              Export Excel
+            </button>
           </div>
         </div>
 
@@ -1382,6 +1448,149 @@ export function ReviewApplications() {
             </div>
           </div>
         )}
+
+        {/* ===== Excel Export Modal ===== */}
+        {showExportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+              {/* Header */}
+              <div className="bg-emerald-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <FileSpreadsheet size={24} />
+                  <div>
+                    <h3 className="text-xl font-bold">Export to Excel</h3>
+                    <p className="text-emerald-100 text-sm">
+                      {activeTab === 'applications' ? 'Review Applications' : 'Inquire Applications'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowExportModal(false); setExportMessage(null); }}
+                  className="text-white hover:text-emerald-200 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-5">
+                {/* Date range */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      <Calendar size={14} className="inline mr-1" />
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={exportStartDate}
+                      onChange={(e) => setExportStartDate(e.target.value)}
+                      max={exportEndDate}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      <Calendar size={14} className="inline mr-1" />
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={exportEndDate}
+                      onChange={(e) => setExportEndDate(e.target.value)}
+                      min={exportStartDate}
+                      max={today}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Status filter */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Filter by Status (optional)</label>
+                  <select
+                    value={exportStatusFilter}
+                    onChange={(e) => setExportStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                  >
+                    <option value="all">All Statuses</option>
+                    {activeTab === 'applications' ? (
+                      <>
+                        <option value="pending">Pending</option>
+                        <option value="under_review">Under Review</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="enrolled">Enrolled</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="pending">Pending</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="spam">Spam</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                {/* Info box */}
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800">
+                  <div className="flex items-start gap-2">
+                    <Download size={16} className="mt-0.5 flex-shrink-0" />
+                    <div>
+                      The report will include all{' '}
+                      <strong>{activeTab === 'applications' ? 'applications' : 'inquiries'}</strong>
+                      {' '}submitted between <strong>{exportStartDate}</strong> and <strong>{exportEndDate}</strong>
+                      {exportStatusFilter !== 'all' && <span> with status <strong>{exportStatusFilter.replace('_', ' ').toUpperCase()}</strong></span>}.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Feedback message */}
+                {exportMessage && (
+                  <div className={`rounded-lg px-4 py-3 text-sm font-medium flex items-center gap-2 ${
+                    exportMessage.type === 'success'
+                      ? 'bg-green-50 text-green-800 border border-green-200'
+                      : 'bg-red-50 text-red-800 border border-red-200'
+                  }`}>
+                    {exportMessage.type === 'success'
+                      ? <CheckCircle size={16} />
+                      : <XCircle size={16} />}
+                    {exportMessage.text}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 pb-6 flex justify-end gap-3">
+                <button
+                  onClick={() => { setShowExportModal(false); setExportMessage(null); }}
+                  className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExportExcel}
+                  disabled={exportLoading}
+                  className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                >
+                  {exportLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      Download Excel
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

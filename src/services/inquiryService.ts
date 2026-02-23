@@ -245,6 +245,50 @@ export class InquiryService extends ApiService {
             return { success: false, message: 'Network error. Please try again.' };
         }
     }
+
+    /**
+     * ADMIN - Export inquiries to Excel within a date range
+     */
+    async exportInquiriesToExcel(params: {
+        startDate: string; // yyyy-MM-dd
+        endDate: string;   // yyyy-MM-dd
+        status?: string;
+    }): Promise<{ success: boolean; message: string }> {
+        try {
+            const queryParams = new URLSearchParams();
+            queryParams.append('startDate', params.startDate);
+            queryParams.append('endDate', params.endDate);
+            if (params.status) queryParams.append('status', params.status.toUpperCase());
+
+            const url = `${this.baseUrl}/api/admin/inquiries/export/excel?${queryParams.toString()}`;
+            console.log('📊 Exporting inquiries to Excel:', url);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                return { success: false, message: `Export failed: ${response.status} ${errorText}` };
+            }
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = `inquiries_${params.startDate}_to_${params.endDate}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(downloadUrl);
+
+            return { success: true, message: 'Excel report downloaded successfully' };
+        } catch (error: any) {
+            console.error('🚨 Error exporting inquiries:', error);
+            return { success: false, message: 'Network error. Please try again.' };
+        }
+    }
 }
 
 export const inquiryService = new InquiryService();

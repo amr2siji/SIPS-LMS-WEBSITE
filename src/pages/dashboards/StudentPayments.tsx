@@ -205,6 +205,22 @@ export function StudentPayments() {
     }
   };
 
+  // createdAt arrives as [y,mo,d,h,mi,s,nano] array in local dev or ISO string in production
+  const parseDateTime = (dt: any): string => {
+    if (!dt) return '—';
+    if (Array.isArray(dt)) {
+      const [y, mo, d, h, mi, s] = dt as number[];
+      return new Date(y, mo - 1, d, h, mi, s).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      });
+    }
+    return new Date(dt).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
       case 'approved':
@@ -501,13 +517,7 @@ export function StudentPayments() {
                     <React.Fragment key={payment.id}>
                       <tr className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {new Date(payment.created_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {parseDateTime(payment.created_at)}
                         </td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{payment.program_name}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{payment.intake_name}</td>
